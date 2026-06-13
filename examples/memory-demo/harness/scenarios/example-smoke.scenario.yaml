@@ -1,0 +1,17 @@
+schemaVersion: 1
+id: example-smoke
+title: Example smoke
+adapter: memory
+tags: [smoke]
+fixtureRefs: [example-empty]
+steps:
+  - action: memory.set
+    input:
+      key: message
+      value: Hello Harness
+assertions:
+  - inspect: memory.get
+    input:
+      key: message
+    oracle: value.equals
+    expected: Hello Harness

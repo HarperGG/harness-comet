@@ -1,0 +1,16 @@
+schemaVersion: 1
+id: example-smoke
+title: Example smoke
+adapter: playwright
+tags: [smoke]
+fixtureRefs: [example-empty]
+steps:
+  - action: page.goto
+    input:
+      url: "data:text/html,<title>Harness</title><main data-testid='message'>Hello Harness</main>"
+assertions:
+  - inspect: page.text
+    input:
+      selector: "[data-testid=message]"
+    oracle: value.contains
+    expected: Hello Harness

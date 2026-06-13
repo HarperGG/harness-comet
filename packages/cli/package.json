@@ -1,0 +1,30 @@
+{
+  "name": "harness-comet",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "harness-comet": "./bin/harness-comet.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b && chmod +x bin/harness-comet.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@harness-comet/adapter-memory": "workspace:*",
+    "@harness-comet/adapter-playwright": "workspace:*",
+    "@harness-comet/core": "workspace:*",
+    "@harness-comet/schema": "workspace:*",
+    "commander": "^14.0.2",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

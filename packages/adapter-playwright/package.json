@@ -1,0 +1,24 @@
+{
+  "name": "@harness-comet/adapter-playwright",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@harness-comet/schema": "workspace:*",
+    "@harness-comet/sdk": "workspace:*",
+    "playwright": "^1.60.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

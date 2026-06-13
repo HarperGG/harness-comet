@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/schema" },
+    { "path": "./packages/sdk" },
+    { "path": "./packages/core" },
+    { "path": "./packages/adapter-memory" },
+    { "path": "./packages/adapter-playwright" },
+    { "path": "./packages/cli" }
+  ]
+}
