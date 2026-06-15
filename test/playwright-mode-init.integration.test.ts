@@ -86,7 +86,7 @@ describe("init --mode playwright", () => {
     expect(config).toContain('testMatch: ["**/*.spec.ts"]');
     expect(config).toContain("fullyParallel: true");
     expect(config).toContain('forbidOnly: Boolean(process.env.CI)');
-    expect(config).toContain('reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]]');
+    expect(config).toContain('["@harness-comet/playwright/reporter"]');
     expect(config).toContain('screenshot: "only-on-failure"');
     expect(config).toContain('video: "retain-on-failure"');
     expect(config).toContain('name: "chromium"');
@@ -113,8 +113,15 @@ describe("init --mode playwright", () => {
     expect(spec).toContain('tag: ["@harness", "@annotation-save"]');
     expect(spec).toContain("attachJson");
     expect(spec).toContain("mockJson");
+    expect(spec).toContain("fetch('/api/bootstrap')");
 
     const helper = await fs.readFile(path.join(root, "tests", "support", "attachments.ts"), "utf8");
     expect(helper).toContain("testInfo.attach");
+
+    const harnessConfig = await fs.readFile(path.join(root, "harness-comet.config.ts"), "utf8");
+    expect(harnessConfig).not.toContain("defaultMode");
+    expect(harnessConfig).not.toContain("requireOpenImpact");
+    expect(harnessConfig).not.toContain("requireDesignDecision");
+    expect(harnessConfig).not.toContain("requireVerifyEvidence");
   });
 });

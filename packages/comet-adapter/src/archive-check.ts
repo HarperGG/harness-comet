@@ -156,9 +156,8 @@ async function archiveCheckPlaywrightCometChange(
     });
   }
   if (impact.action === "none") {
-    const receipt = await readPlaywrightVerifyReceipt(
-      path.join(resolveChangeRoot(projectRoot, change), ".comet", "harness", "verify-receipt.json")
-    );
+    const receiptPath = path.join(resolveChangeRoot(projectRoot, change), ".comet", "harness", "verify-receipt.json");
+    const receipt = await readPlaywrightVerifyReceipt(receiptPath);
     if (receipt.action !== "none" || receipt.status !== "not-applicable") {
       throw new HarnessError({
         code: "COMET_ARCHIVE_RECEIPT_INVALID",
@@ -166,20 +165,35 @@ async function archiveCheckPlaywrightCometChange(
         message: `Archive check requires a not-applicable verify receipt for ${change}`
       });
     }
+    const fingerprint = await buildVerificationFingerprintForMode(projectRoot, "playwright");
+    if (
+      receipt.gitTreeHash !== fingerprint.gitTreeHash ||
+      receipt.configHash !== fingerprint.configHash ||
+      receipt.assetHash !== fingerprint.assetHash
+    ) {
+      throw new HarnessError({
+        code: "COMET_ARCHIVE_FINGERPRINT_MISMATCH",
+        category: "config",
+        message: `Archive check fingerprint mismatch for ${change}`
+      });
+    }
+    const reportPath = buildVerificationReportPath(projectRoot, change);
+    await fs.access(reportPath);
     return {
       change,
-      receiptPath: path.join(resolveChangeRoot(projectRoot, change), ".comet", "harness", "verify-receipt.json"),
-      reportPath: buildVerificationReportPath(projectRoot, change),
-      gitTreeHash: receipt.gitTreeHash,
+      receiptPath,
+      reportPath,
+      gitTreeHash: fingerprint.gitTreeHash,
       status: "passed"
     };
   }
   const changeRoot = resolveChangeRoot(projectRoot, change);
   const receiptPath = path.join(changeRoot, ".comet", "harness", "verify-receipt.json");
   const receipt = await readPlaywrightVerifyReceipt(receiptPath);
-  const selectedScenarios = (await extractPlaywrightTargetTestsFromDesign(projectRoot, change)).map(
-    (target) => target.path
-  );
+  const targetTests = await extractPlaywrightTargetTestsFromDesign(projectRoot, change);
+  const selectedScenarios = targetTests
+    .filter((target) => target.operation !== "retire")
+    .map((target) => target.path);
   const fingerprint = await buildVerificationFingerprintForMode(projectRoot, "playwright");
   if (
     receipt.status !== "passed" ||
@@ -187,8 +201,7 @@ async function archiveCheckPlaywrightCometChange(
     receipt.gitTreeHash !== fingerprint.gitTreeHash ||
     receipt.configHash !== fingerprint.configHash ||
     receipt.assetHash !== fingerprint.assetHash ||
-    JSON.stringify(receipt.targetTests) !==
-      JSON.stringify(selectedScenarios.filter((target) => !target.endsWith(".retire")))
+    JSON.stringify(receipt.targetTests) !== JSON.stringify(selectedScenarios)
   ) {
     throw new HarnessError({
       code: "COMET_ARCHIVE_FINGERPRINT_MISMATCH",

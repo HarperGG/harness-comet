@@ -7,6 +7,7 @@ import { execa } from "execa";
 const bin = path.resolve("packages/cli/src/dev-bin.ts");
 const cli = ["tsx", bin];
 const originalBin = process.env.HARNESS_COMET_COMET_BIN;
+const systemPnpm = "/usr/local/bin/pnpm";
 
 afterEach(() => {
   if (originalBin === undefined) delete process.env.HARNESS_COMET_COMET_BIN;
@@ -25,6 +26,86 @@ async function initGitRepo(root: string): Promise<void> {
   await execa("git", ["init"], { cwd: root });
   await execa("git", ["config", "user.name", "Harness Comet"], { cwd: root });
   await execa("git", ["config", "user.email", "harness@example.com"], { cwd: root });
+}
+
+async function createFakeNpm(root: string): Promise<string> {
+  const binDir = path.join(root, "bin");
+  const script = path.join(binDir, "npm");
+  await mkdir(binDir, { recursive: true });
+  await writeFile(
+    script,
+    `#!/bin/sh
+set -eu
+if [ "$1" = "exec" ] && [ "$2" = "playwright" ]; then
+  mkdir -p "$(dirname "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE")"
+  cat > "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE" <<'EOF'
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-16T00:00:00.000Z",
+  "tests": [
+    {
+      "project": "chromium",
+      "file": "tests/example.spec.ts",
+      "title": "Example save flow",
+      "tags": ["@harness"],
+      "annotations": [],
+      "status": "passed",
+      "duration": 5,
+      "retry": 0,
+      "errors": [],
+      "attachments": []
+    }
+  ]
+}
+EOF
+  exit 0
+fi
+exit 1
+`,
+    "utf8"
+  );
+  await chmod(script, 0o755);
+  return binDir;
+}
+
+async function createFakePnpm(root: string): Promise<string> {
+  const binDir = path.join(root, "bin-pnpm");
+  const script = path.join(binDir, "pnpm");
+  await mkdir(binDir, { recursive: true });
+  await writeFile(
+    script,
+    `#!/bin/sh
+set -eu
+if [ "$1" = "exec" ] && [ "$2" = "playwright" ]; then
+  mkdir -p "$(dirname "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE")"
+  cat > "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE" <<'EOF'
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-16T00:00:00.000Z",
+  "tests": [
+    {
+      "project": "chromium",
+      "file": "tests/example.spec.ts",
+      "title": "Example save flow",
+      "tags": ["@harness"],
+      "annotations": [],
+      "status": "passed",
+      "duration": 5,
+      "retry": 0,
+      "errors": [],
+      "attachments": []
+    }
+  ]
+}
+EOF
+  exit 0
+fi
+exec "${systemPnpm}" "$@"
+`,
+    "utf8"
+  );
+  await chmod(script, 0o755);
+  return binDir;
 }
 
 async function commitAll(root: string, message: string): Promise<void> {
@@ -104,6 +185,68 @@ async function createArchiveOffChange(root: string, change: string): Promise<voi
   - none
 - Asset decisions:
   - none
+`,
+    "utf8"
+  );
+}
+
+async function createPlaywrightArchiveReadyChange(
+  root: string,
+  change: string,
+  action: "none" | "verify-existing" | "update-or-create" = "verify-existing"
+): Promise<void> {
+  const changeRoot = path.join(root, "openspec", "changes", change);
+  await mkdir(changeRoot, { recursive: true });
+  await writeFile(
+    path.join(changeRoot, ".comet.yaml"),
+    "phase: archive\nverify_result: pass\ndesign_doc: design.md\n",
+    "utf8"
+  );
+  if (action === "none") {
+    await writeFile(
+      path.join(changeRoot, "design.md"),
+      `## Harness Playwright Impact
+
+- Action: none
+- Reason: no test asset impact
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
+
+## Harness Playwright Plan
+
+- Action: none
+`,
+      "utf8"
+    );
+    return;
+  }
+  await writeFile(
+    path.join(changeRoot, "design.md"),
+    `## Harness Playwright Impact
+
+- Action: ${action}
+- Reason: existing target remains valid
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
+
+## Harness Playwright Plan
+
+- Action: ${action}
+
+### Target tests
+
+- path: tests/example.spec.ts | operation: verify | reason: existing target remains valid
+- path: tests/legacy.spec.ts | operation: retire | reason: no longer part of active coverage
+
+### Related test assets
+
+- path: playwright.config.ts | reason: reporter config
+
+### Expected evidence
+
+- payload.json
 `,
     "utf8"
   );
@@ -192,6 +335,58 @@ describe("comet archive-check integration", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("CHANGE demo-change");
+    expect(result.stdout).toContain("STATUS passed");
+  });
+
+  it("fails for playwright none receipts when fingerprints become stale", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-none-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    const specPath = path.join(root, "tests", "journeys", "example-save-flow.spec.ts");
+    const spec = await readFile(specPath, "utf8");
+    await writeFile(specPath, `${spec}\n`, "utf8");
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("Archive check fingerprint mismatch");
+  });
+
+  it("ignores retired playwright targets by operation instead of filename suffix", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-retire-"));
+    const fakeBin = await createFakePnpm(root);
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "update-or-create");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"], {
+      env: {
+        ...process.env,
+        PATH: `${fakeBin}:${process.env.PATH ?? ""}`
+      }
+    });
+
+    const result = await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "comet",
+      "archive-check",
+      "--change",
+      "demo-change"
+    ]);
+
+    expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("STATUS passed");
   });
 });

@@ -13,6 +13,25 @@ describe("managed skill patch blocks", () => {
     expect(block).toContain("<!-- harness-comet:end phase=open -->");
   });
 
+  it("uses action-based wording for playwright open patch", () => {
+    const block = buildManagedPatchBlock("open", "en", "playwright");
+    expect(block).toContain("none");
+    expect(block).toContain("verify-existing");
+    expect(block).toContain("update-or-create");
+    expect(block).toContain("--confirmed-by user");
+    expect(block).not.toContain("full | maintain | off");
+    expect(block).not.toContain("Preliminary decision");
+    expect(block).not.toContain("maintain mode");
+    expect(block).not.toContain("full mode");
+  });
+
+  it("removes defineHarnessScenario wording from playwright build patch", () => {
+    const block = buildManagedPatchBlock("build", "en", "playwright");
+    expect(block).toContain("Do not require `defineHarnessScenario`");
+    expect(block).not.toContain("Keep key business tests tagged with");
+    expect(block).not.toContain("defineHarnessScenario(...)");
+  });
+
   it("replaces an existing managed block in place", () => {
     const current = `# comet-open
 

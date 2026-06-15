@@ -33,238 +33,270 @@ export function buildManagedPatchBlock(
 ): string {
   const bodyByPhase: Record<CometLanguage, Record<PatchPhase, string>> = mode === "playwright" ? {
     en: {
-      open: `## Harness Playwright Impact
+      open: `## Harness Playwright Impact Decision
 
-Before leaving the open phase, update \`openspec/changes/<change-id>/design.md\` with:
+Before completing Open:
 
-\`\`\`md
-## Harness Playwright Impact
+1. Inspect the requested change.
+2. Review existing Playwright tests tagged \`@harness\`.
+3. Recommend one action:
+   - \`none\`
+   - \`verify-existing\`
+   - \`update-or-create\`
+4. Explain the recommendation and ask the user to confirm it.
+5. After confirmation, run:
 
-- Mode: full | maintain | off
-- Reason:
-- Affected capabilities:
-  - component: ...
-    capability: ...
-    behavior: ...
-    risk: low | medium | high
-- Existing Playwright assets:
-  - path: ...
-    relation: same-contract | adjacent | regression | unknown
-- Preliminary decision: reuse | update | extend | create | deprecate | none
+\`\`\`bash
+harness-comet impact set \\
+  --change <change-id> \\
+  --action <confirmed-action> \\
+  --reason "<confirmed-reason>" \\
+  --confirmed-by user
 \`\`\`
 
-Mode rules:
-
-- \`full\`: new and existing Playwright assets may be created or updated
-- \`maintain\`: modify existing declared assets only; do not create new Playwright test files
-- \`off\`: only valid when the project is not already onboarded to Harness Playwright
-
-If you believe a new Playwright test file is required while mode is \`maintain\`, stop and revise the mode to \`full\` in Design before implementation.
-
-Run:
+6. Run:
 
 \`\`\`bash
 harness-comet comet hook open --change <change-id>
-\`\`\``,
-      design: `## Harness Playwright Design
-
-If the project uses \`mode: "playwright"\`, the design doc must include:
-
-\`\`\`md
-## Harness Playwright Design
-
-- Mode: full | maintain | off
-- Decision: reuse | update | extend | create | deprecate | none
-- Decision Reason:
-- Target tests:
-  - path: tests/example.spec.ts | scenarioId: example-smoke | action: update | reason: ...
-- Related files:
-  - path: tests/support/example.ts | reason: ...
-- Verification commands:
-  - pnpm exec playwright test tests/example.spec.ts
 \`\`\`
 
-Mode rules:
+This command is a mandatory phase gate.
 
-- \`maintain\` cannot use \`Decision: create\`
-- \`maintain\` may extend an existing file, but must not create a new test file
-- creating a new Playwright asset requires \`Mode: full\`
+- If it fails, fix the reported issue and rerun it.
+- Do not advance until it succeeds.
+- Do not choose on behalf of the user when impact is ambiguous.`,
+      design: `## Harness Playwright Plan
+
+Read the confirmed Harness Action from \`Harness Playwright Impact\`.
+
+For \`none\`:
+- record the reason;
+- do not declare target tests.
+
+For \`verify-existing\`:
+- explicitly list existing target test paths;
+- use only \`verify\` or \`update\`.
+
+For \`update-or-create\`:
+- explicitly list all target tests;
+- use \`verify\`, \`update\`, \`create\`, or \`retire\`;
+- list related test assets;
+- declare expected business evidence.
+
+Use this structure:
+
+\`\`\`md
+## Harness Playwright Plan
+
+- Action: verify-existing
+
+### Target tests
+
+- path: tests/journeys/example.spec.ts
+  operation: verify
+  reason: ...
+
+### Related test assets
+
+- path: tests/data/example.json
+  reason: ...
+
+### Expected evidence
+
+- save-payload
+- final-state
+\`\`\`
 
 Run:
 
 \`\`\`bash
 harness-comet comet hook design --change <change-id>
-\`\`\``,
+\`\`\`
+
+Do not advance until the gate succeeds.`,
       build: `## Harness Playwright Build
 
-Implement the Harness Playwright design decisions before leaving build:
+Implement the approved Harness Playwright Plan.
 
-- Update or create the declared target tests
-- Keep key business tests tagged with \`defineHarnessScenario(...)\`
-- Avoid forcing a fixed helper directory structure unless the project needs it
-
-Build rules:
-
-- when mode is \`maintain\`, do not create new Playwright test files or new test support assets
-- only modify existing declared assets in \`maintain\`
-- if a new test file appears necessary, stop and return to Design to change mode to \`full\`
-
-Run:
+- Keep tests as standard Playwright tests.
+- Use controlled local data or API mocks.
+- Preserve Incident issue bindings.
+- Update Design before changing undeclared Harness assets.
+- Do not require \`defineHarnessScenario\`.
+- Run \`harness-comet validate\`.
+- Run:
 
 \`\`\`bash
 harness-comet comet hook build --change <change-id>
-\`\`\``,
-      verify: `## Harness Playwright Verification
+\`\`\`
 
-Run deterministic Playwright verification for the declared target tests:
+Do not complete Build until the gate succeeds.`,
+      verify: `## Harness Playwright Verify
+
+Run:
 
 \`\`\`bash
 harness-comet comet verify --change <change-id>
 \`\`\`
 
-Record:
+Behavior by Action:
 
-- commandsRun
-- results
-- evidence
-- decisionCheck
+- \`none\`: write a \`not-applicable\` receipt without running Playwright;
+- \`verify-existing\`: run only the declared existing targets;
+- \`update-or-create\`: run only the declared non-retired targets.
 
-Verify rules:
-
-- do not add a new Playwright test as a convenience shortcut during verify
-- \`maintain\` must verify existing declared assets only
-- if verification requires a new asset, the change must go back to Design and switch to \`full\``,
+Do not create or redesign tests during Verify.
+Return to Design or Build if required assets are missing.
+Do not advance until verification succeeds.`,
       archive: `## Harness Playwright Archive
 
-Before archive, confirm the latest Playwright verification is still fresh:
+Before archive:
+
+- confirm the latest verification receipt is still fresh;
+- confirm required target paths still exist;
+- confirm Incident issue bindings remain valid;
+- confirm the verification report and results file exist when required.
+
+Run:
 
 \`\`\`bash
 harness-comet comet archive-check --change <change-id>
 \`\`\`
 
-Capture:
-
-- finalDecision
-- assetsChanged
-- verification
-- longTermNotes`
+Do not archive when the receipt is stale or incomplete.`
     },
     zh: {
-      open: `## Harness Playwright Impact
+      open: `## Harness Playwright 影响决策
 
-离开 open 阶段前，更新 \`openspec/changes/<change-id>/design.md\`，加入：
+完成 Open 阶段前：
 
-\`\`\`md
-## Harness Playwright Impact
+1. 分析本次需求和变更范围；
+2. 查看带有 \`@harness\` tag 的既有 Playwright 测试；
+3. 推荐一个 Action：
+   - \`none\`
+   - \`verify-existing\`
+   - \`update-or-create\`
+4. 说明推荐理由，并让用户确认最终 Action；
+5. 用户确认后执行：
 
-- Mode: full | maintain | off
-- Reason:
-- Affected capabilities:
-  - component: ...
-    capability: ...
-    behavior: ...
-    risk: low | medium | high
-- Existing Playwright assets:
-  - path: ...
-    relation: same-contract | adjacent | regression | unknown
-- Preliminary decision: reuse | update | extend | create | deprecate | none
+\`\`\`bash
+harness-comet impact set \\
+  --change <change-id> \\
+  --action <confirmed-action> \\
+  --reason "<confirmed-reason>" \\
+  --confirmed-by user
 \`\`\`
 
-模式规则：
-
-- \`full\`：允许新增或修改 Playwright 资产
-- \`maintain\`：只能修改已声明的既有资产，禁止新建 Playwright 测试文件
-- \`off\`：仅当项目尚未接入 Harness Playwright 时才允许
-
-如果你判断 \`maintain\` 下必须新增 Playwright 测试文件，先停止实现，回到 Design 把模式改为 \`full\`。
-
-运行：
+6. 执行：
 
 \`\`\`bash
 harness-comet comet hook open --change <change-id>
-\`\`\``,
-      design: `## Harness Playwright Design
-
-如果项目使用 \`mode: "playwright"\`，设计文档必须包含：
-
-\`\`\`md
-## Harness Playwright Design
-
-- Mode: full | maintain | off
-- Decision: reuse | update | extend | create | deprecate | none
-- Decision Reason:
-- Target tests:
-  - path: tests/example.spec.ts | scenarioId: example-smoke | action: update | reason: ...
-- Related files:
-  - path: tests/support/example.ts | reason: ...
-- Verification commands:
-  - pnpm exec playwright test tests/example.spec.ts
 \`\`\`
 
-模式规则：
+该命令是强制阶段门禁。
 
-- \`maintain\` 不能使用 \`Decision: create\`
-- \`maintain\` 可以扩展既有文件，但不能新建测试文件
-- 只有 \`Mode: full\` 才允许新增 Playwright 资产
+- 失败时修复问题并重新执行；
+- 成功前不得进入下一阶段；
+- 影响不明确时不得替用户做最终决定。`,
+      design: `## Harness Playwright Plan
 
-运行：
+读取 \`Harness Playwright Impact\` 中已经确认的 Action。
+
+当 Action 为 \`none\`：
+- 记录原因；
+- 不声明 target tests。
+
+当 Action 为 \`verify-existing\`：
+- 明确列出既有测试路径；
+- operation 只能使用 \`verify\` 或 \`update\`。
+
+当 Action 为 \`update-or-create\`：
+- 明确列出全部目标测试；
+- operation 可使用 \`verify\`、\`update\`、\`create\`、\`retire\`；
+- 列出相关测试资产；
+- 声明预期业务证据。
+
+使用以下结构：
+
+\`\`\`md
+## Harness Playwright Plan
+
+- Action: verify-existing
+
+### Target tests
+
+- path: tests/journeys/example.spec.ts
+  operation: verify
+  reason: ...
+
+### Related test assets
+
+- path: tests/data/example.json
+  reason: ...
+
+### Expected evidence
+
+- save-payload
+- final-state
+\`\`\`
+
+执行：
 
 \`\`\`bash
 harness-comet comet hook design --change <change-id>
-\`\`\``,
+\`\`\`
+
+门禁成功前不得进入下一阶段。`,
       build: `## Harness Playwright Build
 
-离开 build 阶段前，必须实现 Harness Playwright 设计决策：
+实现已经批准的 Harness Playwright Plan。
 
-- 更新或创建声明的 target tests
-- 关键业务测试保持 \`defineHarnessScenario(...)\` 元数据
-- 不要预先强制项目采用固定 helper 目录结构
-
-Build 规则：
-
-- 当 mode 为 \`maintain\` 时，禁止新建 Playwright 测试文件和新的测试辅助资产
-- \`maintain\` 只能修改既有且已声明的资产
-- 如果确实需要新增测试文件，先回到 Design 把模式改为 \`full\`
-
-运行：
+- 保持测试为标准 Playwright tests。
+- 使用可控的本地数据或 API mock。
+- 保留 Incident issue 绑定。
+- 修改未声明的 Harness 资产前先更新 Design。
+- 不要要求 \`defineHarnessScenario\`。
+- 运行 \`harness-comet validate\`。
+- 执行：
 
 \`\`\`bash
 harness-comet comet hook build --change <change-id>
-\`\`\``,
-      verify: `## Harness Playwright Verification
+\`\`\`
 
-为声明的 target tests 运行确定性的 Playwright 验证：
+门禁成功前不得完成 Build。`,
+      verify: `## Harness Playwright Verify
+
+运行：
 
 \`\`\`bash
 harness-comet comet verify --change <change-id>
 \`\`\`
 
-记录：
+按 Action 执行：
 
-- commandsRun
-- results
-- evidence
-- decisionCheck
+- \`none\`：不运行 Playwright，直接写入 \`not-applicable\` receipt；
+- \`verify-existing\`：只运行已声明的既有 targets；
+- \`update-or-create\`：只运行已声明且未 retire 的 targets。
 
-Verify 规则：
-
-- 不要为了补验证而在 verify 阶段顺手新建 Playwright 测试
-- \`maintain\` 只能验证既有且已声明的资产
-- 如果验证依赖新增资产，必须回到 Design，把模式调整为 \`full\``,
+Verify 阶段不得新增或重设计测试。
+如果缺少所需资产，回到 Design 或 Build。
+验证成功前不得进入下一阶段。`,
       archive: `## Harness Playwright Archive
 
-归档前，确认最新 Playwright verification 仍然有效：
+归档前：
+
+- 确认最新 verification receipt 仍然新鲜；
+- 确认必需的 target 路径仍然存在；
+- 确认 Incident issue 绑定仍然有效；
+- 在需要时确认 verification report 与 results file 存在。
+
+执行：
 
 \`\`\`bash
 harness-comet comet archive-check --change <change-id>
 \`\`\`
 
-记录：
-
-- finalDecision
-- assetsChanged
-- verification
-- longTermNotes`
+当 receipt 过期或不完整时不得归档。`
     }
   } : {
     en: {
@@ -573,7 +605,15 @@ function managedPatchPattern(phase: PatchPhase): RegExp {
 }
 
 function findSupportedAnchorIndex(content: string): number {
-  const anchors = ["## Completion", "## Final Checklist", "## Done"];
+  const anchors = [
+    "## Completion Criteria",
+    "## Before finishing",
+    "## Final checks",
+    "## Exit Criteria",
+    "## Completion",
+    "## Final Checklist",
+    "## Done"
+  ];
   const lines = content.split("\n");
   let offset = 0;
   let insideFence = false;

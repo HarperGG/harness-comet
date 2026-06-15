@@ -28,18 +28,18 @@ export default class HarnessCometReporter {
   private readonly entries: PlaywrightTestResultV1[] = [];
 
   async onBegin(_config?: unknown, _suite?: unknown): Promise<void> {
-    const outputFile = process.env.HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE;
+    const outputFile = resolveOutputFile();
     if (!outputFile) return;
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
   }
 
   async onTestEnd(test: ReporterTestLike, result: ReporterResultLike): Promise<void> {
-    if (!process.env.HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE) return;
+    if (!resolveOutputFile()) return;
     this.entries.push(normalizeEntry(test, result));
   }
 
   async onEnd(): Promise<void> {
-    const outputFile = process.env.HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE;
+    const outputFile = resolveOutputFile();
     if (!outputFile) return;
 
     const payload: HarnessPlaywrightResultsV1 = {
@@ -51,6 +51,13 @@ export default class HarnessCometReporter {
     await fs.writeFile(tempFile, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     await fs.rename(tempFile, outputFile);
   }
+}
+
+function resolveOutputFile(): string | undefined {
+  const configured = process.env.HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE;
+  if (configured) return configured;
+  const projectRoot = process.env.HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT ?? process.cwd();
+  return path.join(projectRoot, "test-results", "harness-comet", "results.json");
 }
 
 function normalizeEntry(test: ReporterTestLike, result: ReporterResultLike): PlaywrightTestResultV1 {

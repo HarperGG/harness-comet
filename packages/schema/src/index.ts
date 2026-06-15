@@ -144,6 +144,12 @@ export const ImpactDecisionSchema = z.enum([
   "deprecate",
   "none"
 ]);
+export const LegacyPlaywrightImpactConfigSchema = z.object({
+  defaultMode: ImpactModeSchema.default("maintain"),
+  requireOpenImpact: z.boolean().default(true),
+  requireDesignDecision: z.boolean().default(true),
+  requireVerifyEvidence: z.boolean().default(true)
+});
 
 export const RuntimeModeConfigV1Schema = HarnessConfigV1Schema.extend({
   mode: z.literal("runtime")
@@ -172,14 +178,7 @@ export const PlaywrightModeConfigV1Schema = z
         requireReadme: z.boolean().default(true)
       })
       .default({}),
-    impact: z
-      .object({
-        defaultMode: ImpactModeSchema.default("maintain"),
-        requireOpenImpact: z.boolean().default(true),
-        requireDesignDecision: z.boolean().default(true),
-        requireVerifyEvidence: z.boolean().default(true)
-      })
-      .default({}),
+    impact: LegacyPlaywrightImpactConfigSchema.optional(),
     validation: z
       .object({
         forbidOnly: z.boolean().default(true),

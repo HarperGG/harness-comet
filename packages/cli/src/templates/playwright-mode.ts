@@ -17,12 +17,6 @@ export function playwrightHarnessCometConfigTemplate(testDir = "tests"): string 
     requireIssueUrl: false,
     requireReadme: true
   },
-  impact: {
-    defaultMode: "maintain",
-    requireOpenImpact: true,
-    requireDesignDecision: true,
-    requireVerifyEvidence: true
-  },
   validation: {
     forbidOnly: true,
     longWaitWarningMs: 5000
@@ -41,7 +35,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
+  reporter: [["list"], ["html", { open: "never" }], ["@harness-comet/playwright/reporter"]],
   expect: {
     timeout: 10_000
   },
@@ -109,7 +103,10 @@ test(
         <output data-testid="status"></output>
       </main>
       <script>
-        window.__bootstrap = {"featureFlags":{"annotationSave":true}};
+        async function bootstrap() {
+          const response = await fetch('/api/bootstrap');
+          window.__bootstrap = await response.json();
+        }
         document.querySelector('[data-testid="save"]').addEventListener('click', async () => {
           const payload = {
             id: "annotation-1",
@@ -123,9 +120,13 @@ test(
           });
           document.querySelector('[data-testid="status"]').textContent = 'Saved';
         });
+        bootstrap();
       </script>
     \`);
 
+    await expect
+      .poll(() => page.evaluate(() => Boolean(window.__bootstrap?.featureFlags?.annotationSave)))
+      .toBe(true);
     await page.getByTestId("label").fill((input as { label: string }).label);
     await page.getByTestId("comment").fill((input as { comment: string }).comment);
     await page.getByTestId("save").click();

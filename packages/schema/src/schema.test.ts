@@ -130,8 +130,34 @@ describe("HarnessCometConfigV1Schema", () => {
       expect(parsed.incidents?.directory).toBe("tests/incidents");
       expect(parsed.incidents?.requireIssueUrl).toBe(false);
       expect(parsed.incidents?.requireReadme).toBe(true);
+      expect(parsed.impact).toBeUndefined();
       expect(parsed.validation?.forbidOnly).toBe(true);
       expect(parsed.validation?.longWaitWarningMs).toBe(5000);
+    }
+  });
+
+  it("still accepts legacy playwright impact config when present", () => {
+    const parsed = HarnessCometConfigV1Schema.parse({
+      schemaVersion: 1,
+      mode: "playwright",
+      playwright: {
+        configFile: "playwright.config.ts",
+        testDir: "tests",
+        testMatch: ["**/*.spec.ts"],
+        assetRoots: ["tests"],
+        resultsFile: "test-results/harness-comet/results.json"
+      },
+      impact: {
+        defaultMode: "maintain",
+        requireOpenImpact: true,
+        requireDesignDecision: true,
+        requireVerifyEvidence: true
+      }
+    });
+
+    expect(parsed.mode).toBe("playwright");
+    if (parsed.mode === "playwright") {
+      expect(parsed.impact?.defaultMode).toBe("maintain");
     }
   });
 

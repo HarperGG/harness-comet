@@ -318,14 +318,16 @@ describe("comet install integration", () => {
     expect(install.exitCode).toBe(0);
     const openSkill = await readFile(path.join(root, ".codex", "skills", "comet-open", "SKILL.md"), "utf8");
     expect(openSkill).toContain("## Harness Playwright Impact");
-    expect(openSkill).toContain("Existing Playwright assets");
-    expect(openSkill).toContain("do not create new Playwright test files");
+    expect(openSkill).toContain("verify-existing");
+    expect(openSkill).toContain("update-or-create");
+    expect(openSkill).toContain("harness-comet impact set");
+    expect(openSkill).not.toContain("Existing Playwright assets");
     const designSkill = await readFile(path.join(root, ".codex", "skills", "comet-design", "SKILL.md"), "utf8");
-    expect(designSkill).toContain("## Harness Playwright Design");
-    expect(designSkill).toContain("Target tests:");
-    expect(designSkill).toContain("creating a new Playwright asset requires `Mode: full`");
+    expect(designSkill).toContain("## Harness Playwright Plan");
+    expect(designSkill).toContain("### Target tests");
+    expect(designSkill).toContain("### Related test assets");
     const verifySkill = await readFile(path.join(root, ".codex", "skills", "comet-verify", "SKILL.md"), "utf8");
-    expect(verifySkill).toContain("do not add a new Playwright test as a convenience shortcut during verify");
+    expect(verifySkill).toContain("Do not create or redesign tests during Verify.");
   });
 
   it("allows explicit platform install before Comet has created the platform directory", async () => {

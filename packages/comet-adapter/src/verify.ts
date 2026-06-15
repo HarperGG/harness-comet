@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execa } from "execa";
@@ -235,15 +234,23 @@ async function verifyPlaywrightCometChange(
   const code = await runPlaywrightHarness({
     root: projectRoot,
     configFile: project.config.playwright.configFile,
-    args: [
-      `--reporter=${resolvePlaywrightReporterModulePath()}`,
-      ...runnableTargets.map((target) => target.path)
-    ],
+    args: runnableTargets.map((target) => target.path),
     env: {
       HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE: resultsPath,
       HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: projectRoot
     }
   });
+  try {
+    await fs.access(resultsPath);
+  } catch {
+    throw new HarnessError({
+      code: "COMET_VERIFY_PLAYWRIGHT_REPORTER_MISSING",
+      category: "playwright",
+      message: `Playwright results file was not produced for ${change}`,
+      hint: `Ensure playwright.config registers "@harness-comet/playwright/reporter" and rerun comet verify`,
+      path: resultsPath
+    });
+  }
   const results = await readPlaywrightResults(resultsPath);
   assertDeclaredTargetsCovered(runnableTargets.map((target) => target.path), results);
   const derivedStatus = derivePlaywrightVerifyStatus(results);
@@ -554,15 +561,6 @@ function derivePlaywrightVerifyStatus(
 
 function countPlaywrightEvidence(results: HarnessPlaywrightResultsV1): number {
   return results.tests.reduce((count, test) => count + Math.max(1, test.attachments.length), 0);
-}
-
-function resolvePlaywrightReporterModulePath(): string {
-  const require = createRequire(import.meta.url);
-  try {
-    return require.resolve("@harness-comet/playwright/reporter");
-  } catch {
-    return new URL("../../../playwright/dist/reporter.js", import.meta.url).pathname;
-  }
 }
 
 async function writePlaywrightVerificationReport(

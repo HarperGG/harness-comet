@@ -58,6 +58,25 @@ exit 1
   return binDir;
 }
 
+async function createFakeNpmWithoutResults(root: string): Promise<string> {
+  const binDir = path.join(root, "bin-no-results");
+  const script = path.join(binDir, "npm");
+  await fs.mkdir(binDir, { recursive: true });
+  await fs.writeFile(
+    script,
+    `#!/bin/sh
+set -eu
+if [ "$1" = "exec" ] && [ "$2" = "playwright" ]; then
+  exit 0
+fi
+exit 1
+`,
+    "utf8"
+  );
+  await chmod(script, 0o755);
+  return binDir;
+}
+
 async function createFakeComet(version = "0.3.8"): Promise<string> {
   const root = await fs.mkdtemp(path.join(tmpdir(), "fake-comet-bin-"));
   const script = path.join(root, "comet");
@@ -153,5 +172,76 @@ describe("playwright reporter integration", () => {
         project: "chromium"
       })
     ]);
+  });
+
+  it("fails with a clear error when the project reporter is not registered", async () => {
+    const root = await tempProject();
+    const fakeBin = await createFakeNpmWithoutResults(root);
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
+    await initGitRepo(root);
+    await fs.mkdir(path.join(root, "tests"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, "harness-comet.config.ts"),
+      `export default {
+  schemaVersion: 1,
+  mode: "playwright",
+  playwright: {
+    configFile: "playwright.config.ts",
+    testDir: "tests",
+    testMatch: ["**/*.spec.ts"],
+    assetRoots: ["tests"],
+    resultsFile: "test-results/harness-comet/results.json"
+  }
+};
+`,
+      "utf8"
+    );
+    await fs.writeFile(path.join(root, "package.json"), JSON.stringify({ packageManager: "npm@10.8.2" }, null, 2));
+    await fs.writeFile(path.join(root, "playwright.config.ts"), "export default { reporter: [[\"list\"]] };\n");
+    await fs.writeFile(path.join(root, "tests", "example.spec.ts"), "export {};\n");
+    await fs.mkdir(path.join(root, "openspec", "changes", "demo-change"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, "openspec", "changes", "demo-change", ".comet.yaml"),
+      "phase: verify\ndesign_doc: design.md\nverify_result: pass\n",
+      "utf8"
+    );
+    await fs.writeFile(
+      path.join(root, "openspec", "changes", "demo-change", "design.md"),
+      `## Harness Playwright Impact
+
+- Action: verify-existing
+- Reason: existing test should still pass
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
+
+## Harness Playwright Plan
+
+- Action: verify-existing
+
+### Target tests
+
+- path: tests/example.spec.ts | operation: verify | reason: existing test should still pass
+`,
+      "utf8"
+    );
+    await execa("git", ["add", "."], { cwd: root });
+    await execa("git", ["commit", "-m", "init reporter missing project"], { cwd: root });
+    await fs.rm(path.join(root, "test-results"), { recursive: true, force: true });
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "verify", "--change", "demo-change"],
+      {
+        env: {
+          ...process.env,
+          PATH: `${fakeBin}:${process.env.PATH ?? ""}`
+        },
+        reject: false
+      }
+    );
+
+    expect(result.exitCode).toBe(3);
+    expect(result.stderr).toContain("Playwright results file was not produced for demo-change");
   });
 });
