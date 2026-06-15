@@ -453,10 +453,15 @@ async function runCommand(
     }
     const args = [...playwrightPassthroughArgs];
     if (options.headed && !args.includes("--headed")) args.push("--headed");
+    const resultsPath = path.join(project.root, project.config.playwright.resultsFile);
     const code = await runPlaywrightHarness({
       root: project.root,
       configFile: project.config.playwright.configFile,
-      args
+      args,
+      env: {
+        HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE: resultsPath,
+        HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: project.root
+      }
     });
     process.exitCode = code;
     return;

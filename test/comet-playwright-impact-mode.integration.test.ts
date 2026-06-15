@@ -118,7 +118,7 @@ defineHarnessScenario({
 
     expect(result.exitCode).not.toBe(0);
     expect(`${result.stdout}\n${result.stderr}`).toContain(
-      "Maintain mode cannot create new Playwright assets"
+      "Action verify-existing cannot create new Playwright assets"
     );
     expect(`${result.stdout}\n${result.stderr}`).toContain("tests/new-flow.spec.ts");
   });

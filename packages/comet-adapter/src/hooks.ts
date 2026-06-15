@@ -356,9 +356,10 @@ async function runCometPlaywrightBuildHook(
   const unauthorizedCreates = await findUnauthorizedPlaywrightCreates(projectRoot, impact, design);
   if (impact.action === "verify-existing" && unauthorizedCreates.length > 0) {
     throw new HarnessError({
-      code: "COMET_BUILD_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
+      code: "PLAYWRIGHT_CREATE_NOT_ALLOWED",
       category: "config",
-      message: `Maintain mode cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      message: `Action verify-existing cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      hint: "Change the Action to update-or-create or remove create operations.",
       path: designPath
     });
   }

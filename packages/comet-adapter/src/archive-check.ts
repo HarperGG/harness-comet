@@ -276,6 +276,22 @@ function validatePlaywrightNoneArchiveReport(
       path: reportPath
     });
   }
+  if (receipt.resultsPath !== "not-applicable") {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_RECEIPT_INVALID",
+      category: "config",
+      message: `Archive check requires resultsPath=not-applicable for ${change}`,
+      path: reportPath
+    });
+  }
+  if (receipt.evidenceCount !== 0) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_RECEIPT_INVALID",
+      category: "config",
+      message: `Archive check requires evidenceCount=0 for ${change}`,
+      path: reportPath
+    });
+  }
 }
 
 async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {

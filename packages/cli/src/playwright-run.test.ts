@@ -9,7 +9,8 @@ const loadHarnessCometConfig = vi.fn(async () => ({
     playwright: {
       configFile: "playwright.config.ts",
       testDir: "tests",
-      testMatch: ["**/*.spec.ts"]
+      testMatch: ["**/*.spec.ts"],
+      resultsFile: "test-results/harness-comet/results.json"
     }
   }
 }));
@@ -49,7 +50,12 @@ describe("playwright run passthrough", () => {
     expect(runPlaywrightHarness).toHaveBeenCalledWith({
       root: "/tmp/project",
       configFile: "playwright.config.ts",
-      args: ["--grep", "@annotation-save", "tests/journeys/save.spec.ts", "--headed"]
+      args: ["--grep", "@annotation-save", "tests/journeys/save.spec.ts", "--headed"],
+      env: {
+        HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE:
+          "/tmp/project/test-results/harness-comet/results.json",
+        HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: "/tmp/project"
+      }
     });
   });
 });

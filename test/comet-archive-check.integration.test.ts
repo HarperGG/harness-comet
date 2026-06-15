@@ -113,6 +113,24 @@ async function commitAll(root: string, message: string): Promise<void> {
   await execa("git", ["commit", "-m", message], { cwd: root });
 }
 
+async function updatePlaywrightReceipt(
+  root: string,
+  change: string,
+  mutate: (receipt: Record<string, unknown>) => Record<string, unknown>
+): Promise<void> {
+  const receiptPath = path.join(
+    root,
+    "openspec",
+    "changes",
+    change,
+    ".comet",
+    "harness",
+    "verify-receipt.json"
+  );
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8")) as Record<string, unknown>;
+  await writeFile(receiptPath, `${JSON.stringify(mutate(receipt), null, 2)}\n`, "utf8");
+}
+
 async function createArchiveReadyChange(root: string, change: string): Promise<void> {
   const changeRoot = path.join(root, "openspec", "changes", change);
   await mkdir(changeRoot, { recursive: true });
@@ -405,6 +423,54 @@ describe("comet archive-check integration", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("Archive check fingerprint mismatch");
+  });
+
+  it("fails for playwright none receipts when resultsPath is not not-applicable", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-none-results-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    await updatePlaywrightReceipt(root, "demo-change", (receipt) => ({
+      ...receipt,
+      resultsPath: "test-results/unexpected.json"
+    }));
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("resultsPath=not-applicable");
+  });
+
+  it("fails for playwright none receipts when evidenceCount is not zero", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-none-evidence-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    await updatePlaywrightReceipt(root, "demo-change", (receipt) => ({
+      ...receipt,
+      evidenceCount: 1
+    }));
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("evidenceCount=0");
   });
 
   it("ignores retired playwright targets by operation instead of filename suffix", async () => {
