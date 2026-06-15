@@ -143,6 +143,23 @@ export interface VerifyReceiptV1 {
   completedAt: string;
 }
 
+export interface PlaywrightVerifyReceiptV2 {
+  schemaVersion: 2;
+  change: string;
+  action: "none" | "verify-existing" | "update-or-create";
+  harnessCometVersion: string;
+  cometVersion: string;
+  gitTreeHash: string;
+  configHash: string;
+  assetHash: string;
+  targetTests: string[];
+  status: "passed" | "failed" | "error" | "not-applicable";
+  resultsPath: string;
+  reportPath: string;
+  evidenceCount: number;
+  completedAt: string;
+}
+
 export interface CometBindReport {
   change: string;
   cometYamlPath: string;
@@ -156,7 +173,7 @@ export interface CometVerifyReport {
   reportPath: string;
   reused: boolean;
   selectedScenarios: string[];
-  result: "passed" | "failed" | "error";
+  result: "passed" | "failed" | "error" | "not-applicable";
   gitTreeHash: string;
 }
 

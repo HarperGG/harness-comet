@@ -10,6 +10,7 @@ export const PATCHED_SKILL_FILES = [
 ] as const;
 
 type PatchPhase = "open" | "design" | "build" | "verify" | "archive";
+const MANAGED_PATCH_VERSION = 2;
 
 const phaseByPath = new Map<string, PatchPhase>([
   ["comet-open/SKILL.md", "open"],
@@ -498,7 +499,7 @@ harness-comet comet archive-check --change <change-id>
     }
   };
 
-  return `<!-- harness-comet:start phase=${phase} version=1 -->
+  return `<!-- harness-comet:start phase=${phase} version=${MANAGED_PATCH_VERSION} -->
 
 ${bodyByPhase[language][phase]}
 
@@ -513,12 +514,15 @@ export function applyManagedPatch(
 ): string {
   const phase = getPatchPhase(relativePath);
   const block = buildManagedPatchBlock(phase, language, mode);
-  const pattern = new RegExp(
-    `\\n?<!-- harness-comet:start phase=${phase} version=1 -->[\\s\\S]*?<!-- harness-comet:end phase=${phase} -->\\n?`,
-    "m"
-  );
+  const pattern = managedPatchPattern(phase);
   if (pattern.test(current)) {
     return current.replace(pattern, `\n\n${block}\n`);
+  }
+  const anchorIndex = findSupportedAnchorIndex(current);
+  if (anchorIndex >= 0) {
+    const before = current.slice(0, anchorIndex).replace(/\s*$/, "");
+    const after = current.slice(anchorIndex).replace(/^\s*/, "");
+    return `${before}\n\n${block}\n\n${after}`;
   }
   const separator = current.endsWith("\n") ? "\n" : "\n\n";
   return `${current}${separator}${block}\n`;
@@ -526,16 +530,13 @@ export function applyManagedPatch(
 
 export function removeManagedPatch(relativePath: string, current: string): string {
   const phase = getPatchPhase(relativePath);
-  const pattern = new RegExp(
-    `\\n?<!-- harness-comet:start phase=${phase} version=1 -->[\\s\\S]*?<!-- harness-comet:end phase=${phase} -->\\n?`,
-    "m"
-  );
+  const pattern = managedPatchPattern(phase);
   return current.replace(pattern, "\n").replace(/\n{3,}/g, "\n\n");
 }
 
 export function hasManagedPatch(relativePath: string, current: string): boolean {
   const phase = getPatchPhase(relativePath);
-  return current.includes(`<!-- harness-comet:start phase=${phase} version=1 -->`);
+  return managedPatchPattern(phase).test(current);
 }
 
 export function getManagedFileContent(
@@ -562,4 +563,29 @@ export function isManagedFile(relativePath: string): boolean {
 
 export function isManagedContent(content: string): boolean {
   return content.includes("harness-comet:start");
+}
+
+function managedPatchPattern(phase: PatchPhase): RegExp {
+  return new RegExp(
+    `\\n?<!-- harness-comet:start phase=${phase} version=(?:1|2) -->[\\s\\S]*?<!-- harness-comet:end phase=${phase} -->\\n?`,
+    "m"
+  );
+}
+
+function findSupportedAnchorIndex(content: string): number {
+  const anchors = ["## Completion", "## Final Checklist", "## Done"];
+  const lines = content.split("\n");
+  let offset = 0;
+  let insideFence = false;
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      insideFence = !insideFence;
+    }
+    if (!insideFence && anchors.some((anchor) => line.trimStart().startsWith(anchor))) {
+      return offset;
+    }
+    offset += line.length + 1;
+  }
+  return -1;
 }

@@ -63,25 +63,27 @@ async function createChange(root: string, change: string, mode: "full" | "mainta
     path.join(changeRoot, "design.md"),
     `## Harness Playwright Impact
 
-- Mode: ${mode}
+- Action: ${mode === "full" ? "update-or-create" : "verify-existing"}
 - Reason: ${mode === "full" ? "new independent behavior requires a new path" : "same contract should stay inside existing assets"}
-- Affected capabilities:
-  - component: example | capability: render-page | behavior: show-page | risk: low
-- Existing Playwright assets:
-  - path: tests/example.spec.ts | relation: same-contract
-- Preliminary decision: ${mode === "full" ? "create" : "update"}
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
 
-## Harness Playwright Design
+## Harness Playwright Plan
 
-- Mode: ${mode}
-- Decision: ${mode === "full" ? "create" : "update"}
-- Decision Reason: ${mode === "full" ? "new independent business behavior" : "same contract, no new asset should be required"}
-- Target tests:
-  - path: tests/new-flow.spec.ts | scenarioId: new-flow | action: ${mode === "full" ? "create" : "update"} | reason: ${mode === "full" ? "new independent business behavior" : "incorrectly added new file"}
-- Related files:
-  - path: playwright.config.ts | reason: unchanged
-- Verification commands:
-  - pnpm exec playwright test tests/new-flow.spec.ts
+- Action: ${mode === "full" ? "update-or-create" : "verify-existing"}
+
+### Target tests
+
+- path: tests/new-flow.spec.ts | operation: ${mode === "full" ? "create" : "update"} | reason: ${mode === "full" ? "new independent business behavior" : "incorrectly added new file"}
+
+### Related test assets
+
+- path: playwright.config.ts | reason: unchanged
+
+### Expected evidence
+
+- playwright test tests/new-flow.spec.ts
 `,
     "utf8"
   );

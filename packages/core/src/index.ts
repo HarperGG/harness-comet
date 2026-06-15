@@ -19,7 +19,18 @@ export {
   validatePlaywrightHarnessProject,
   type PlaywrightValidationResult
 } from "./playwright/validate.js";
+export {
+  listPlaywrightTests,
+  type ListedPlaywrightTest,
+  type ListPlaywrightTestsOptions
+} from "./playwright/list.js";
+export {
+  validatePlaywrightIncidents,
+  type PlaywrightIncidentValidationResult,
+  type ValidatePlaywrightIncidentsOptions
+} from "./playwright/incidents.js";
 export { buildPlaywrightCommand, runPlaywrightHarness } from "./playwright/runner.js";
+export { detectPackageManager, type PackageManagerName } from "./package-manager.js";
 export {
   analyzeHarnessAssets,
   discoverHarnessAssets,

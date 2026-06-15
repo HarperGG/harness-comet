@@ -1,10 +1,15 @@
 import crypto from "node:crypto";
+import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execa } from "execa";
 import {
+  HarnessPlaywrightResultsV1Schema,
+  PlaywrightVerifyReceiptV2Schema,
+  type HarnessPlaywrightResultsV1
+} from "@harness-comet/schema";
+import {
   discoverHarnessAssets,
-  discoverPlaywrightHarnessAssets,
   loadHarnessCometConfig,
   loadHarnessConfig,
   mapErrorToExitCode,
@@ -24,7 +29,7 @@ import {
 } from "./change.js";
 import { findUnauthorizedPlaywrightCreates } from "./hooks.js";
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
-import type { CometVerifyReport, VerifyReceiptV1 } from "./types.js";
+import type { CometVerifyReport, PlaywrightVerifyReceiptV2, VerifyReceiptV1 } from "./types.js";
 
 export async function verifyCometChange(
   projectRoot: string,
@@ -144,71 +149,6 @@ async function verifyPlaywrightCometChange(
   const receiptPath = path.join(changeRoot, ".comet", "harness", "verify-receipt.json");
   const reportPath = buildVerificationReportPath(projectRoot, change);
   const { impact } = await readPlaywrightHarnessImpact(projectRoot, change);
-
-  if (impact.mode === "off") {
-    if (await projectHasPlaywrightHarnessAssets(projectRoot)) {
-      throw new HarnessError({
-        code: "COMET_VERIFY_OFF_INVALID",
-        category: "config",
-        message: `Harness Playwright Impact mode off is not allowed for an onboarded Harness project: ${change}`
-      });
-    }
-    await writeVerificationSkipReport(reportPath, change, impact.reason, "playwright");
-    return {
-      change,
-      comet,
-      receiptPath: "not-applicable",
-      reportPath,
-      reused: false,
-      selectedScenarios: [],
-      result: "passed",
-      gitTreeHash: "not-applicable"
-    };
-  }
-
-  const { design } = await readPlaywrightHarnessDesign(projectRoot, change);
-  const targetTests = await extractPlaywrightTargetTestsFromDesign(projectRoot, change);
-  const unauthorizedCreates = await findUnauthorizedPlaywrightCreates(projectRoot, impact, design);
-  if (design.mode === "maintain" && unauthorizedCreates.length > 0) {
-    throw new HarnessError({
-      code: "COMET_VERIFY_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
-      category: "config",
-      message: `Maintain mode cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`
-    });
-  }
-  if (design.mode === "off" && unauthorizedCreates.length > 0) {
-    throw new HarnessError({
-      code: "COMET_VERIFY_PLAYWRIGHT_OFF_INVALID",
-      category: "config",
-      message: `Off mode cannot create Playwright assets: ${unauthorizedCreates.join(", ")}`
-    });
-  }
-  const selectedScenarios = targetTests.map((target) => target.scenarioId ?? target.path);
-  const { configHash, assetHash, gitTreeHash } = await buildVerificationFingerprintForMode(
-    projectRoot,
-    "playwright"
-  );
-  const reusable = await readReusableVerifyReceipt(
-    receiptPath,
-    gitTreeHash,
-    configHash,
-    assetHash,
-    selectedScenarios
-  );
-  if (reusable) {
-    await writeVerificationReport(projectRoot, reportPath, reusable, true, "playwright");
-    return {
-      change,
-      comet,
-      receiptPath,
-      reportPath,
-      reused: true,
-      selectedScenarios,
-      result: "passed",
-      gitTreeHash
-    };
-  }
-
   const project = await loadHarnessCometConfig({ root: projectRoot });
   if (project.config.mode !== "playwright") {
     throw new HarnessError({
@@ -217,27 +157,127 @@ async function verifyPlaywrightCometChange(
       message: `Expected mode=playwright for ${change}`
     });
   }
+  const resultsPath = path.join(projectRoot, project.config.playwright.resultsFile);
+  const relativeResultsPath = path.relative(projectRoot, resultsPath) || project.config.playwright.resultsFile;
+  const relativeReportPath = path.relative(projectRoot, reportPath) || reportPath;
 
+  if (impact.action === "none") {
+    const { configHash, assetHash, gitTreeHash } = await buildVerificationFingerprintForMode(
+      projectRoot,
+      "playwright"
+    );
+    const receipt: PlaywrightVerifyReceiptV2 = {
+      schemaVersion: 2,
+      change,
+      action: impact.action,
+      harnessCometVersion: HARNESS_COMET_VERSION,
+      cometVersion: comet.version ?? "unknown",
+      gitTreeHash,
+      configHash,
+      assetHash,
+      targetTests: [],
+      status: "not-applicable",
+      resultsPath: "not-applicable",
+      reportPath: relativeReportPath,
+      evidenceCount: 0,
+      completedAt: new Date().toISOString()
+    };
+    await writePlaywrightReceipt(receiptPath, receipt);
+    await writePlaywrightVerificationReport(reportPath, receipt, impact.reason ?? "No action declared");
+    return {
+      change,
+      comet,
+      receiptPath,
+      reportPath,
+      reused: false,
+      selectedScenarios: [],
+      result: "not-applicable",
+      gitTreeHash
+    };
+  }
+
+  const { design } = await readPlaywrightHarnessDesign(projectRoot, change);
+  const targetTests = await extractPlaywrightTargetTestsFromDesign(projectRoot, change);
+  const unauthorizedCreates = await findUnauthorizedPlaywrightCreates(projectRoot, impact, design);
+  if (impact.action === "verify-existing" && unauthorizedCreates.length > 0) {
+    throw new HarnessError({
+      code: "COMET_VERIFY_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
+      category: "config",
+      message: `Maintain mode cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`
+    });
+  }
+  const runnableTargets = targetTests.filter((target) => target.operation !== "retire");
+  const selectedScenarios = runnableTargets.map((target) => target.path);
+  const { configHash, assetHash, gitTreeHash } = await buildVerificationFingerprintForMode(
+    projectRoot,
+    "playwright"
+  );
+  const reusable = await readReusablePlaywrightReceipt(
+    receiptPath,
+    gitTreeHash,
+    configHash,
+    assetHash,
+    selectedScenarios
+  );
+  if (reusable) {
+    await writePlaywrightVerificationReport(reportPath, reusable, undefined, true);
+    return {
+      change,
+      comet,
+      receiptPath,
+      reportPath,
+      reused: true,
+      selectedScenarios,
+      result: reusable.status,
+      gitTreeHash
+    };
+  }
   const code = await runPlaywrightHarness({
     root: projectRoot,
     configFile: project.config.playwright.configFile,
-    args: targetTests.map((target) => target.path)
+    args: [
+      `--reporter=${resolvePlaywrightReporterModulePath()}`,
+      ...runnableTargets.map((target) => target.path)
+    ],
+    env: {
+      HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE: resultsPath,
+      HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: projectRoot
+    }
   });
-  const status: VerifyReceiptV1["status"] = code === 0 ? "passed" : code === 1 ? "failed" : "error";
-  const receipt: VerifyReceiptV1 = {
-    schemaVersion: 1,
+  const results = await readPlaywrightResults(resultsPath);
+  assertDeclaredTargetsCovered(runnableTargets.map((target) => target.path), results);
+  const derivedStatus = derivePlaywrightVerifyStatus(results);
+  const status: PlaywrightVerifyReceiptV2["status"] =
+    code !== 0 && derivedStatus === "passed"
+      ? code === 1
+        ? "failed"
+        : "error"
+      : derivedStatus;
+  const receipt: PlaywrightVerifyReceiptV2 = {
+    schemaVersion: 2,
     change,
+    action: impact.action,
     harnessCometVersion: HARNESS_COMET_VERSION,
     cometVersion: comet.version ?? "unknown",
     gitTreeHash,
     configHash,
     assetHash,
-    selectedScenarios,
+    targetTests: selectedScenarios,
     status,
+    resultsPath: relativeResultsPath,
+    reportPath: relativeReportPath,
+    evidenceCount: countPlaywrightEvidence(results),
     completedAt: new Date().toISOString()
   };
-  await writeReceipt(receiptPath, receipt);
-  await writeVerificationReport(projectRoot, reportPath, receipt, false, "playwright", design.verificationCommands);
+  await writePlaywrightReceipt(receiptPath, receipt);
+  await writePlaywrightVerificationReport(
+    reportPath,
+    receipt,
+    undefined,
+    false,
+    design.expectedEvidence,
+    results
+  );
   return {
     change,
     comet,
@@ -286,9 +326,37 @@ async function writeReceipt(receiptPath: string, receipt: VerifyReceiptV1): Prom
   await writeFileAtomic(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, 0o644);
 }
 
+async function writePlaywrightReceipt(
+  receiptPath: string,
+  receipt: PlaywrightVerifyReceiptV2
+): Promise<void> {
+  const parsed = PlaywrightVerifyReceiptV2Schema.parse(receipt);
+  await fs.mkdir(path.dirname(receiptPath), { recursive: true });
+  await writeFileAtomic(receiptPath, `${JSON.stringify(parsed, null, 2)}\n`, 0o644);
+}
+
 export async function readVerifyReceipt(receiptPath: string): Promise<VerifyReceiptV1> {
   try {
-    return JSON.parse(await fs.readFile(receiptPath, "utf8")) as VerifyReceiptV1;
+    const parsed = JSON.parse(await fs.readFile(receiptPath, "utf8")) as VerifyReceiptV1 | PlaywrightVerifyReceiptV2;
+    if (parsed && typeof parsed === "object" && "schemaVersion" in parsed && parsed.schemaVersion === 2) {
+      return parsed as unknown as VerifyReceiptV1;
+    }
+    return parsed as VerifyReceiptV1;
+  } catch {
+    throw new HarnessError({
+      code: "COMET_VERIFY_RECEIPT_MISSING",
+      category: "config",
+      message: "Verify receipt not found",
+      path: receiptPath
+    });
+  }
+}
+
+export async function readPlaywrightVerifyReceipt(
+  receiptPath: string
+): Promise<PlaywrightVerifyReceiptV2> {
+  try {
+    return PlaywrightVerifyReceiptV2Schema.parse(JSON.parse(await fs.readFile(receiptPath, "utf8")));
   } catch {
     throw new HarnessError({
       code: "COMET_VERIFY_RECEIPT_MISSING",
@@ -329,15 +397,15 @@ async function hashHarnessAssets(projectRoot: string): Promise<string> {
 async function hashPlaywrightAssets(projectRoot: string): Promise<string> {
   const project = await loadHarnessCometConfig({ root: projectRoot });
   if (project.config.mode !== "playwright") return hashHarnessAssets(projectRoot);
-  const assets = await discoverPlaywrightHarnessAssets({
-    root: projectRoot,
-    testDir: project.config.playwright.testDir,
-    testMatch: project.config.playwright.testMatch
-  });
   const digest = crypto.createHash("sha256");
-  for (const asset of assets.tests.sort((left, right) => left.path.localeCompare(right.path))) {
-    digest.update(path.relative(projectRoot, asset.path));
-    digest.update(await fs.readFile(asset.path));
+  const roots = [...new Set(project.config.playwright.assetRoots ?? [project.config.playwright.testDir])];
+  for (const root of roots) {
+    const files: string[] = [];
+    await collectFiles(path.join(projectRoot, root), files);
+    for (const file of files.sort()) {
+      digest.update(path.relative(projectRoot, file));
+      digest.update(await fs.readFile(file));
+    }
   }
   return digest.digest("hex");
 }
@@ -372,7 +440,7 @@ async function getGitTreeHash(projectRoot: string): Promise<string> {
 
 export function buildVerificationReportPath(projectRoot: string, change: string): string {
   const datePrefix = new Date().toISOString().slice(0, 10);
-  return path.join(projectRoot, "docs", "superpowers", "reports", `${datePrefix}-${change}-verify.md`);
+  return path.join(projectRoot, "docs", "superpowers", "reports", `${datePrefix}-${change}-harness.md`);
 }
 
 export async function buildVerificationFingerprint(projectRoot: string): Promise<{
@@ -424,6 +492,125 @@ async function writeVerificationReport(
   await writeFileAtomic(reportPath, `${body}\n`, 0o644);
 }
 
+async function readReusablePlaywrightReceipt(
+  receiptPath: string,
+  gitTreeHash: string,
+  configHash: string,
+  assetHash: string,
+  targetTests: string[]
+): Promise<PlaywrightVerifyReceiptV2 | undefined> {
+  try {
+    const receipt = await readPlaywrightVerifyReceipt(receiptPath);
+    if (
+      receipt.status === "passed" &&
+      receipt.gitTreeHash === gitTreeHash &&
+      receipt.configHash === configHash &&
+      receipt.assetHash === assetHash &&
+      JSON.stringify(receipt.targetTests) === JSON.stringify(targetTests)
+    ) {
+      return receipt;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function readPlaywrightResults(resultsPath: string): Promise<HarnessPlaywrightResultsV1> {
+  try {
+    return HarnessPlaywrightResultsV1Schema.parse(JSON.parse(await fs.readFile(resultsPath, "utf8")));
+  } catch (error) {
+    throw new HarnessError({
+      code: "COMET_VERIFY_PLAYWRIGHT_RESULTS_MISSING",
+      category: "playwright",
+      message: error instanceof Error ? error.message : "Playwright results file is missing or invalid",
+      path: resultsPath
+    });
+  }
+}
+
+function assertDeclaredTargetsCovered(
+  targetTests: string[],
+  results: HarnessPlaywrightResultsV1
+): void {
+  for (const target of targetTests) {
+    if (!results.tests.some((test) => test.file === target)) {
+      throw new HarnessError({
+        code: "COMET_VERIFY_PLAYWRIGHT_RESULT_TARGET_MISSING",
+        category: "playwright",
+        message: `Missing Playwright result for declared target: ${target}`
+      });
+    }
+  }
+}
+
+function derivePlaywrightVerifyStatus(
+  results: HarnessPlaywrightResultsV1
+): PlaywrightVerifyReceiptV2["status"] {
+  if (results.tests.some((test) => test.status === "failed")) return "failed";
+  if (results.tests.some((test) => test.status === "interrupted" || test.status === "timedOut")) return "error";
+  return "passed";
+}
+
+function countPlaywrightEvidence(results: HarnessPlaywrightResultsV1): number {
+  return results.tests.reduce((count, test) => count + Math.max(1, test.attachments.length), 0);
+}
+
+function resolvePlaywrightReporterModulePath(): string {
+  const require = createRequire(import.meta.url);
+  try {
+    return require.resolve("@harness-comet/playwright/reporter");
+  } catch {
+    return new URL("../../../playwright/dist/reporter.js", import.meta.url).pathname;
+  }
+}
+
+async function writePlaywrightVerificationReport(
+  reportPath: string,
+  receipt: PlaywrightVerifyReceiptV2,
+  skipReason?: string,
+  reused = false,
+  expectedEvidence: string[] = [],
+  results?: HarnessPlaywrightResultsV1
+): Promise<void> {
+  const evidenceSummary =
+    results && results.tests.length > 0
+      ? results.tests
+          .map((test) => `- ${test.file}: ${test.status.toUpperCase()} (${test.attachments.length} attachments)`)
+          .join("\n")
+      : "- none";
+  const commandLine =
+    expectedEvidence.length > 0
+      ? expectedEvidence.map((entry) => `- ${entry}`).join("\n")
+      : "- harness-comet comet verify --change " + receipt.change;
+  const notes =
+    receipt.status === "not-applicable"
+      ? `Skipped because action is none (${skipReason ?? "no reason supplied"})`
+      : `Reused receipt = ${reused ? "yes" : "no"}`;
+  const body = `## Harness Playwright Verification
+
+- Status: ${receipt.status.toUpperCase()}
+- Action: ${receipt.action}
+- Target tests: ${receipt.targetTests.length > 0 ? receipt.targetTests.join(", ") : "-"}
+- Results: \`${receipt.resultsPath}\`
+- Receipt: \`openspec/changes/${receipt.change}/.comet/harness/verify-receipt.json\`
+- Report: \`${receipt.reportPath}\`
+- Evidence count: ${receipt.evidenceCount}
+- Git tree hash: ${receipt.gitTreeHash}
+- Notes: ${notes}
+
+### Expected Evidence
+
+${commandLine}
+
+### Observed Results
+
+${evidenceSummary}
+`;
+  await fs.mkdir(path.dirname(reportPath), { recursive: true });
+  await writeFileAtomic(reportPath, `${body}\n`, 0o644);
+}
+
 async function writeVerificationSkipReport(
   reportPath: string,
   change: string,
@@ -442,21 +629,6 @@ async function writeVerificationSkipReport(
 `;
   await fs.mkdir(path.dirname(reportPath), { recursive: true });
   await writeFileAtomic(reportPath, `${body}\n`, 0o644);
-}
-
-async function projectHasPlaywrightHarnessAssets(projectRoot: string): Promise<boolean> {
-  try {
-    const project = await loadHarnessCometConfig({ root: projectRoot });
-    if (project.config.mode !== "playwright") return false;
-    const assets = await discoverPlaywrightHarnessAssets({
-      root: projectRoot,
-      testDir: project.config.playwright.testDir,
-      testMatch: project.config.playwright.testMatch
-    });
-    return assets.tests.some((asset) => asset.scenarios.length > 0);
-  } catch {
-    return false;
-  }
 }
 
 async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {

@@ -9,29 +9,36 @@ async function tempProject(): Promise<string> {
 }
 
 describe("validatePlaywrightHarnessProject", () => {
-  it("passes with config, test dir, playwright config, and metadata", async () => {
+  it("passes with config, test dir, playwright config, and collected tests", async () => {
     const root = await tempProject();
     await fs.mkdir(path.join(root, "tests"), { recursive: true });
     await fs.writeFile(path.join(root, "playwright.config.ts"), "export default {};");
-    await fs.writeFile(
-      path.join(root, "tests", "example.spec.ts"),
-      `import { defineHarnessScenario } from "@harness-comet/playwright";
-       defineHarnessScenario({
-         id: "example-smoke",
-         title: "Example smoke",
-         component: "example",
-         capability: "render-page",
-         behavior: "show-page",
-         contract: "example-page-visible"
-       });`
-    );
 
     const result = await validatePlaywrightHarnessProject({
       root,
       playwright: {
         configFile: "playwright.config.ts",
         testDir: "tests",
-        testMatch: ["**/*.spec.ts"]
+        testMatch: ["**/*.spec.ts"],
+        assetRoots: ["tests"],
+        resultsFile: "test-results/harness-comet/results.json"
+      },
+      packageManager: "pnpm",
+      reporterModulePath: "/tmp/list-reporter.js",
+      runCommand: async (_command, _args, options) => {
+        await fs.writeFile(
+          options.env.HARNESS_COMET_PLAYWRIGHT_LIST_OUTPUT_FILE!,
+          JSON.stringify([
+            {
+              file: "tests/example.spec.ts",
+              title: "Example smoke",
+              tags: ["@harness"],
+              annotations: []
+            }
+          ]),
+          "utf8"
+        );
+        return { exitCode: 0, stdout: "", stderr: "" };
       }
     });
 
@@ -39,22 +46,29 @@ describe("validatePlaywrightHarnessProject", () => {
     expect(result.assets.tests).toHaveLength(1);
   });
 
-  it("fails when no scenario metadata exists", async () => {
+  it("fails when no tests are collected", async () => {
     const root = await tempProject();
     await fs.mkdir(path.join(root, "tests"), { recursive: true });
     await fs.writeFile(path.join(root, "playwright.config.ts"), "export default {};");
-    await fs.writeFile(path.join(root, "tests", "example.spec.ts"), `import { test } from "@playwright/test";`);
 
     const result = await validatePlaywrightHarnessProject({
       root,
       playwright: {
         configFile: "playwright.config.ts",
         testDir: "tests",
-        testMatch: ["**/*.spec.ts"]
+        testMatch: ["**/*.spec.ts"],
+        assetRoots: ["tests"],
+        resultsFile: "test-results/harness-comet/results.json"
+      },
+      packageManager: "pnpm",
+      reporterModulePath: "/tmp/list-reporter.js",
+      runCommand: async (_command, _args, options) => {
+        await fs.writeFile(options.env.HARNESS_COMET_PLAYWRIGHT_LIST_OUTPUT_FILE!, "[]", "utf8");
+        return { exitCode: 0, stdout: "", stderr: "" };
       }
     });
 
     expect(result.ok).toBe(false);
-    expect(result.errors[0].code).toBe("PLAYWRIGHT_METADATA_MISSING");
+    expect(result.errors[0].code).toBe("PLAYWRIGHT_TESTS_MISSING");
   });
 });

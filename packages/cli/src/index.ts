@@ -4,7 +4,9 @@ import { Command } from "commander";
 import pc from "picocolors";
 import {
   HarnessError,
+  detectPackageManager,
   discoverHarnessAssets,
+  listPlaywrightTests,
   loadHarnessCometConfig,
   loadHarnessConfig,
   mapErrorToExitCode,
@@ -16,6 +18,7 @@ import {
 } from "@harness-comet/core";
 import { registerCometCommands } from "./commands/comet.js";
 import { registerImpactCommands } from "./commands/impact.js";
+import { createPlaywrightIncident } from "./commands/create.js";
 import { initHarnessProject, scenarioTemplate } from "./commands/init.js";
 
 interface GlobalOptions {
@@ -33,11 +36,12 @@ export async function main(argv = process.argv): Promise<void> {
     process.exitCode = 3;
     return;
   }
-  const program = buildProgram();
-  await program.parseAsync(argv);
+  const { commandArgv, passthroughArgs } = splitArgv(argv);
+  const program = buildProgram({ playwrightPassthroughArgs: passthroughArgs });
+  await program.parseAsync(commandArgv);
 }
 
-export function buildProgram(): Command {
+export function buildProgram(options: { playwrightPassthroughArgs?: string[] } = {}): Command {
   const program = new Command();
   program
     .name("harness-comet")
@@ -72,6 +76,25 @@ export function buildProgram(): Command {
   program
     .command("doctor")
     .action(withErrors(program, async () => doctorCommand(rootOptions(program))));
+
+  const tests = program.command("tests");
+  tests
+    .command("list")
+    .option("--tag <tag>", "filter by tag")
+    .action(withErrors(program, async (commandOptions) => testsListCommand(rootOptions(program), commandOptions)));
+
+  const create = program.command("create");
+  create
+    .command("incident")
+    .argument("<id>")
+    .option("--title <text>", "incident title")
+    .option("--issue-url <url>", "linked issue URL")
+    .option("--force", "overwrite generated incident files when safe")
+    .action(
+      withErrors(program, async (id, commandOptions) =>
+        createIncidentCommand(rootOptions(program), id, commandOptions)
+      )
+    );
 
   const scenario = program.command("scenario");
   scenario
@@ -108,7 +131,11 @@ export function buildProgram(): Command {
     .option("--fail-fast", "stop after first failure")
     .option("--headed", "run browser headed")
     .option("--dry-run", "show selected scenarios without execution")
-    .action(withErrors(program, async (options) => runCommand(rootOptions(program), options)));
+    .action(
+      withErrors(program, async (commandOptions) =>
+        runCommand(rootOptions(program), commandOptions, options.playwrightPassthroughArgs ?? [])
+      )
+    );
 
   registerCometCommands(
     program,
@@ -192,7 +219,8 @@ async function validateCommand(
   if (project.config.mode === "playwright") {
     const result = await validatePlaywrightHarnessProject({
       root: project.root,
-      playwright: project.config.playwright
+      playwright: project.config.playwright,
+      incidents: project.config.incidents
     });
     if (!result.ok) throw result.errors[0];
     output(
@@ -201,7 +229,8 @@ async function validateCommand(
         ok: true,
         mode: "playwright",
         tests: result.assets.tests.length,
-        scenarios: result.assets.tests.reduce((count, test) => count + test.scenarios.length, 0)
+        harnessTagged: result.assets.tests.filter((test) => test.tags.includes("@harness")).length,
+        warnings: result.warnings.map((warning) => warning.code)
       },
       "Playwright harness assets are valid"
     );
@@ -272,6 +301,56 @@ async function doctorCommand(global: GlobalOptions): Promise<void> {
     { ok: checks.every((check) => check.ok), checks },
     checks.map((check) => `${check.ok ? "PASS" : "FAIL"} ${check.name} ${check.detail}`).join("\n")
   );
+}
+
+async function testsListCommand(
+  global: GlobalOptions,
+  options: { tag?: string }
+): Promise<void> {
+  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
+  if (project.config.mode !== "playwright") {
+    throw new HarnessError({
+      code: "PLAYWRIGHT_MODE_REQUIRED",
+      category: "selection",
+      message: "tests list is only available in playwright mode"
+    });
+  }
+
+  const tests = await listPlaywrightTests({
+    root: project.root,
+    configFile: project.config.playwright.configFile
+  });
+  const filtered = options.tag ? tests.filter((test) => test.tags.includes(options.tag!)) : tests;
+  output(
+    global,
+    filtered,
+    filtered.map((test) => `${test.file}\t${test.title}\t${test.tags.join(",")}`).join("\n")
+  );
+}
+
+async function createIncidentCommand(
+  global: GlobalOptions,
+  id: string,
+  options: { title?: string; issueUrl?: string; force?: boolean }
+): Promise<void> {
+  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
+  if (project.config.mode !== "playwright") {
+    throw new HarnessError({
+      code: "PLAYWRIGHT_MODE_REQUIRED",
+      category: "selection",
+      message: "create incident is only available in playwright mode"
+    });
+  }
+
+  const result = await createPlaywrightIncident({
+    root: project.root,
+    testDir: project.config.playwright.testDir,
+    id,
+    title: options.title,
+    issueUrl: options.issueUrl,
+    force: options.force
+  });
+  output(global, result, `Created incident ${result.id}`);
 }
 
 function usesPlaywright(
@@ -359,7 +438,8 @@ async function runCommand(
     failFast?: boolean;
     headed?: boolean;
     dryRun?: boolean;
-  }
+  },
+  playwrightPassthroughArgs: string[]
 ): Promise<void> {
   const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
   if (project.config.mode === "playwright") {
@@ -371,8 +451,8 @@ async function runCommand(
           "--scenario is only supported in runtime mode; pass Playwright file filters after -- in playwright mode"
       });
     }
-    const args: string[] = [];
-    if (options.headed) args.push("--headed");
+    const args = [...playwrightPassthroughArgs];
+    if (options.headed && !args.includes("--headed")) args.push("--headed");
     const code = await runPlaywrightHarness({
       root: project.root,
       configFile: project.config.playwright.configFile,
@@ -447,4 +527,15 @@ function serializeError(error: unknown): unknown {
   if (error instanceof HarnessError) return error.toJSON();
   if (error instanceof Error) return { message: error.message };
   return { message: String(error) };
+}
+
+function splitArgv(argv: string[]): { commandArgv: string[]; passthroughArgs: string[] } {
+  const separatorIndex = argv.indexOf("--");
+  if (separatorIndex === -1) {
+    return { commandArgv: argv, passthroughArgs: [] };
+  }
+  return {
+    commandArgv: argv.slice(0, separatorIndex),
+    passthroughArgs: argv.slice(separatorIndex + 1)
+  };
 }

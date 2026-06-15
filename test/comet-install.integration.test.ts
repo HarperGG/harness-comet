@@ -154,7 +154,7 @@ describe("comet install integration", () => {
 
     const openSkill = await readFile(path.join(root, ".codex", "skills", "comet-open", "SKILL.md"), "utf8");
     expect(openSkill).toContain("Open phase from upstream Comet.");
-    expect(openSkill).toContain("<!-- harness-comet:start phase=open version=1 -->");
+    expect(openSkill).toContain("<!-- harness-comet:start phase=open version=2 -->");
     expect(openSkill).toContain("harness-comet comet hook open --change");
     expect(openSkill).toContain("## Harness Impact");
     expect(openSkill).toContain("Mode: full | maintain | off");
@@ -388,4 +388,47 @@ describe("comet install integration", () => {
     expect(install.stdout).not.toContain("TARGET antigravity");
     expect(install.stdout).not.toContain("TARGET github-copilot");
   });
+
+  it("upgrades existing v1 managed blocks in place during reinstall", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-install-upgrade-v1-"));
+    await mkdir(path.join(root, ".codex"), { recursive: true });
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "comet",
+      "install",
+      "--platform",
+      "codex",
+      "--yes"
+    ]);
+
+    const openSkillPath = path.join(root, ".codex", "skills", "comet-open", "SKILL.md");
+    const installed = await readFile(openSkillPath, "utf8");
+    await writeFile(
+      openSkillPath,
+      installed.replace("version=2", "version=1").replace("Open phase from upstream Comet.", "Legacy open phase"),
+      "utf8"
+    );
+
+    const reinstall = await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "comet",
+      "install",
+      "--platform",
+      "codex",
+      "--yes",
+      "--force"
+    ]);
+
+    expect(reinstall.exitCode).toBe(0);
+    const next = await readFile(openSkillPath, "utf8");
+    expect(next).toContain("version=2");
+    expect(next).not.toContain("Legacy open phase");
+    expect(next.match(/harness-comet:start phase=open/g)?.length).toBe(1);
+  });
+
 });

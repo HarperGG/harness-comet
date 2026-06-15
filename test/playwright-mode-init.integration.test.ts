@@ -29,10 +29,17 @@ describe("init --mode playwright", () => {
     expect(result.exitCode).toBe(0);
     await expect(fs.stat(path.join(root, "harness-comet.config.ts"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "playwright.config.ts"))).resolves.toBeTruthy();
-    await expect(fs.stat(path.join(root, "tests", "example.spec.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "journeys", "example-save-flow.spec.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "incidents", "README.md"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "data", "example-input.json"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "data", "example-expected-payload.json"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "support", "mock-api.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "support", "attachments.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "fixtures.ts"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "docs", "testing", "README.md"))).resolves.toBeTruthy();
-    await expect(fs.stat(path.join(root, "tests", "pages"))).rejects.toThrow();
-    await expect(fs.stat(path.join(root, "tests", "drivers"))).rejects.toThrow();
+    await expect(fs.stat(path.join(root, "docs", "testing", "authoring-guide.md"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "docs", "testing", "incident-guide.md"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "docs", "testing", "acceptance-criteria.md"))).resolves.toBeTruthy();
   });
 
   it("adds Playwright dependencies unless skipped", async () => {
@@ -83,5 +90,31 @@ describe("init --mode playwright", () => {
     expect(config).toContain('screenshot: "only-on-failure"');
     expect(config).toContain('video: "retain-on-failure"');
     expect(config).toContain('name: "chromium"');
+  });
+
+  it("writes an incident-friendly example spec and support helpers", async () => {
+    const root = await tempProject();
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "playwright",
+      "--skip-install",
+      "--skip-browsers",
+      "--yes"
+    ]);
+
+    const spec = await fs.readFile(
+      path.join(root, "tests", "journeys", "example-save-flow.spec.ts"),
+      "utf8"
+    );
+    expect(spec).toContain('tag: ["@harness", "@annotation-save"]');
+    expect(spec).toContain("attachJson");
+    expect(spec).toContain("mockJson");
+
+    const helper = await fs.readFile(path.join(root, "tests", "support", "attachments.ts"), "utf8");
+    expect(helper).toContain("testInfo.attach");
   });
 });

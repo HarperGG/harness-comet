@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FixtureMetadataV1Schema,
   HarnessCometConfigV1Schema,
+  IncidentRecordV1Schema,
   ScenarioV1Schema
 } from "./index.js";
 
@@ -92,6 +93,11 @@ describe("HarnessCometConfigV1Schema", () => {
         testDir: "tests",
         testMatch: ["**/*.spec.ts"]
       },
+      incidents: {
+        directory: "tests/incidents",
+        requireIssueUrl: true,
+        requireReadme: true
+      },
       impact: {
         defaultMode: "maintain",
         requireOpenImpact: true,
@@ -103,6 +109,29 @@ describe("HarnessCometConfigV1Schema", () => {
     expect(parsed.mode).toBe("playwright");
     if (parsed.mode === "playwright") {
       expect(parsed.playwright.testDir).toBe("tests");
+    }
+  });
+
+  it("applies playwright mode defaults for verification paths and validation", () => {
+    const parsed = HarnessCometConfigV1Schema.parse({
+      schemaVersion: 1,
+      mode: "playwright",
+      playwright: {
+        configFile: "playwright.config.ts",
+        testDir: "tests",
+        testMatch: ["**/*.spec.ts"]
+      }
+    });
+
+    expect(parsed.mode).toBe("playwright");
+    if (parsed.mode === "playwright") {
+      expect(parsed.playwright.assetRoots).toEqual(["tests"]);
+      expect(parsed.playwright.resultsFile).toBe("test-results/harness-comet/results.json");
+      expect(parsed.incidents?.directory).toBe("tests/incidents");
+      expect(parsed.incidents?.requireIssueUrl).toBe(false);
+      expect(parsed.incidents?.requireReadme).toBe(true);
+      expect(parsed.validation?.forbidOnly).toBe(true);
+      expect(parsed.validation?.longWaitWarningMs).toBe(5000);
     }
   });
 
@@ -124,5 +153,21 @@ describe("HarnessCometConfigV1Schema", () => {
         }
       })
     ).toThrow();
+  });
+});
+
+describe("IncidentRecordV1Schema", () => {
+  it("parses valid incident metadata", () => {
+    expect(() =>
+      IncidentRecordV1Schema.parse({
+        schemaVersion: 1,
+        id: "BUG-1842",
+        title: "Dragging polygon vertex duplicates coordinates",
+        issueUrl: "https://example.com/issues/BUG-1842",
+        status: "created",
+        createdAt: "2026-06-15T10:00:00.000Z",
+        testFile: "BUG-1842.spec.ts"
+      })
+    ).not.toThrow();
   });
 });

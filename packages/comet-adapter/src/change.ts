@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { HarnessError } from "@harness-comet/core";
-import { normalizePlaywrightDecision, type PlaywrightImpactDecision } from "./playwright-impact-policy.js";
 
 export type HarnessImpactMode = "full" | "maintain" | "off";
+export type PlaywrightHarnessAction = "none" | "verify-existing" | "update-or-create";
+export type PlaywrightTargetOperation = "verify" | "update" | "create" | "retire";
 
 export interface HarnessImpactRecord {
   mode: HarnessImpactMode;
@@ -29,17 +30,17 @@ export interface HarnessDesignSeedInput {
 }
 
 export interface PlaywrightHarnessImpactRecord {
-  mode: HarnessImpactMode;
+  action: PlaywrightHarnessAction;
   reason: string;
-  affectedCapabilities: string[];
-  existingPlaywrightAssets: string[];
-  preliminaryDecision: PlaywrightImpactDecision;
+  confirmedBy: "user" | "agent";
+  confirmedAt?: string;
+  reviewedTests: string[];
+  legacyMode?: HarnessImpactMode;
 }
 
 export interface PlaywrightTargetTestRecord {
   path: string;
-  scenarioId?: string;
-  action: PlaywrightImpactDecision;
+  operation: PlaywrightTargetOperation;
   reason: string;
 }
 
@@ -49,12 +50,11 @@ export interface PlaywrightRelatedFileRecord {
 }
 
 export interface PlaywrightHarnessDesignRecord {
-  mode: HarnessImpactMode;
-  decision: PlaywrightImpactDecision;
-  decisionReason: string;
+  action: PlaywrightHarnessAction;
+  reason?: string;
   targetTests: PlaywrightTargetTestRecord[];
   relatedFiles: PlaywrightRelatedFileRecord[];
-  verificationCommands: string[];
+  expectedEvidence: string[];
 }
 
 export function resolveChangeRoot(projectRoot: string, change: string): string {
@@ -180,14 +180,28 @@ export function readPlaywrightHarnessImpactFromContent(
 ): PlaywrightHarnessImpactRecord | null {
   const section = extractMarkdownSection(content, "Harness Playwright Impact");
   if (!section.trim()) return null;
+  const action = normalizePlaywrightAction(extractSingleBulletValue(section, "Action"));
+  if (action) {
+    return {
+      action,
+      reason: extractSingleBulletValue(section, "Reason"),
+      confirmedBy: normalizeConfirmedBy(extractSingleBulletValue(section, "Confirmed by")),
+      confirmedAt: extractSingleBulletValue(section, "Confirmed at") || undefined,
+      reviewedTests: extractBulletList(section, "Reviewed existing tests")
+    };
+  }
+
+  const legacyMode = normalizeLegacyMode(extractSingleBulletValue(section, "Mode"));
+  if (!legacyMode) return null;
   return {
-    mode: extractSingleBulletValue(section, "Mode") as HarnessImpactMode,
+    action: mapLegacyModeToAction(legacyMode),
     reason: extractSingleBulletValue(section, "Reason"),
-    affectedCapabilities: extractBulletList(section, "Affected capabilities"),
-    existingPlaywrightAssets: extractBulletList(section, "Existing Playwright assets"),
-    preliminaryDecision: normalizePlaywrightDecision(
-      extractSingleBulletValue(section, "Preliminary decision")
-    )
+    confirmedBy: "agent",
+    confirmedAt: undefined,
+    reviewedTests: extractPathsFromStructuredBullets(
+      extractBulletList(section, "Existing Playwright assets")
+    ),
+    legacyMode
   };
 }
 
@@ -213,16 +227,21 @@ export async function writeHarnessImpact(
 export async function writePlaywrightHarnessImpact(
   projectRoot: string,
   change: string,
-  input: { mode: HarnessImpactMode; reason: string }
+  input: {
+    action: PlaywrightHarnessAction;
+    reason: string;
+    confirmedBy: "user" | "agent";
+    confirmedAt?: string;
+    reviewedTests?: string[];
+  }
 ): Promise<{ path: string; impact: PlaywrightHarnessImpactRecord }> {
   const { path: designPath, content } = await readDesignDoc(projectRoot, change);
-  const existing = readPlaywrightHarnessImpactFromContent(content);
   const nextImpact: PlaywrightHarnessImpactRecord = {
-    mode: input.mode,
+    action: input.action,
     reason: input.reason,
-    affectedCapabilities: existing?.affectedCapabilities ?? [],
-    existingPlaywrightAssets: existing?.existingPlaywrightAssets ?? [],
-    preliminaryDecision: existing?.preliminaryDecision ?? "none"
+    confirmedBy: input.confirmedBy,
+    confirmedAt: input.confirmedAt,
+    reviewedTests: input.reviewedTests ?? []
   };
   const updated = replaceOrAppendMarkdownSection(
     content,
@@ -291,23 +310,42 @@ export async function readPlaywrightHarnessImpact(
 export function readPlaywrightHarnessDesignFromContent(
   content: string
 ): PlaywrightHarnessDesignRecord | null {
-  const section = extractMarkdownSection(content, "Harness Playwright Design");
+  const section =
+    extractMarkdownSection(content, "Harness Playwright Plan") ||
+    extractMarkdownSection(content, "Harness Playwright Design");
   if (!section.trim()) return null;
+  const action =
+    normalizePlaywrightAction(extractSingleBulletValue(section, "Action")) ??
+    mapLegacyModeToAction(normalizeLegacyMode(extractSingleBulletValue(section, "Mode")) ?? "off");
+  const reason =
+    extractSingleBulletValue(section, "Reason") ||
+    extractSingleBulletValue(section, "Decision Reason") ||
+    undefined;
+  const targetLabel = extractMarkdownSubsection(section, "Target tests")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).trim());
+  const targets = extractStructuredEntries(targetLabel).map((entry) => ({
+    path: entry.path ?? "",
+    operation: normalizeTargetOperation(entry.operation ?? entry.action ?? ""),
+    reason: entry.reason ?? ""
+  }));
+  const relatedLabel = readSubsectionBullets(section, "Related test assets").length > 0
+    ? readSubsectionBullets(section, "Related test assets")
+    : readSubsectionBullets(section, "Related files");
+  const evidence = readSubsectionBullets(section, "Expected evidence").length > 0
+    ? readSubsectionBullets(section, "Expected evidence")
+    : extractBulletList(section, "Verification commands");
   return {
-    mode: extractSingleBulletValue(section, "Mode") as HarnessImpactMode,
-    decision: normalizePlaywrightDecision(extractSingleBulletValue(section, "Decision")),
-    decisionReason: extractSingleBulletValue(section, "Decision Reason"),
-    targetTests: extractStructuredEntries(extractBulletList(section, "Target tests")).map((entry) => ({
-      path: entry.path ?? "",
-      scenarioId: entry.scenarioId,
-      action: normalizePlaywrightDecision(entry.action ?? ""),
-      reason: entry.reason ?? ""
-    })),
-    relatedFiles: extractStructuredEntries(extractBulletList(section, "Related files")).map((entry) => ({
+    action,
+    reason,
+    targetTests: targets,
+    relatedFiles: extractStructuredEntries(relatedLabel).map((entry) => ({
       path: entry.path ?? "",
       reason: entry.reason ?? ""
     })),
-    verificationCommands: extractBulletList(section, "Verification commands")
+    expectedEvidence: evidence
   };
 }
 
@@ -360,10 +398,8 @@ export async function extractPlaywrightTargetTestsFromDesign(
 export function designDeclaresPlaywrightCreation(
   design: PlaywrightHarnessDesignRecord
 ): boolean {
-  return (
-    design.decision === "create" ||
-    design.targetTests.some((target) => target.action === "create")
-  );
+  return design.action === "update-or-create" &&
+    design.targetTests.some((target) => target.operation === "create");
 }
 
 export function extractPathsFromStructuredBullets(values: string[]): string[] {
@@ -501,13 +537,12 @@ function renderPlaywrightHarnessImpact(impact: PlaywrightHarnessImpactRecord): s
   const lines = [
     "## Harness Playwright Impact",
     "",
-    `- Mode: ${impact.mode}`,
+    `- Action: ${impact.action}`,
     `- Reason: ${impact.reason}`,
-    "- Affected capabilities:",
-    ...renderIndentedBulletList(impact.affectedCapabilities),
-    "- Existing Playwright assets:",
-    ...renderIndentedBulletList(impact.existingPlaywrightAssets),
-    `- Preliminary decision: ${impact.preliminaryDecision}`
+    `- Confirmed by: ${impact.confirmedBy}`,
+    ...(impact.confirmedAt ? [`- Confirmed at: ${impact.confirmedAt}`] : []),
+    "- Reviewed existing tests:",
+    ...renderIndentedBulletList(impact.reviewedTests)
   ];
   return lines.join("\n");
 }
@@ -624,4 +659,47 @@ function extractStructuredEntries(values: string[]): Array<Record<string, string
         })
     )
   );
+}
+
+function readSubsectionBullets(section: string, heading: string): string[] {
+  return extractMarkdownSubsection(section, heading)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2).trim());
+}
+
+function normalizeLegacyMode(value: string): HarnessImpactMode | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "full") return "full";
+  if (normalized === "maintain") return "maintain";
+  if (normalized === "off") return "off";
+  return undefined;
+}
+
+function normalizePlaywrightAction(value: string): PlaywrightHarnessAction | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "verify-existing") return "verify-existing";
+  if (normalized === "update-or-create") return "update-or-create";
+  return undefined;
+}
+
+function normalizeTargetOperation(value: string): PlaywrightTargetOperation {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "verify") return "verify";
+  if (normalized === "update") return "update";
+  if (normalized === "create") return "create";
+  if (normalized === "retire") return "retire";
+  return "verify";
+}
+
+function normalizeConfirmedBy(value: string): "user" | "agent" {
+  return value.trim().toLowerCase() === "agent" ? "agent" : "user";
+}
+
+function mapLegacyModeToAction(mode: HarnessImpactMode): PlaywrightHarnessAction {
+  if (mode === "off") return "none";
+  if (mode === "maintain") return "verify-existing";
+  return "update-or-create";
 }

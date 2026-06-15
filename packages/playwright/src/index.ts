@@ -52,6 +52,9 @@ export function harnessAnnotation(
   };
 }
 
+export { default as HarnessCometListReporter } from "./list-reporter.js";
+export { default as HarnessCometReporter } from "./reporter.js";
+
 function assertNonEmpty(value: string, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${field} is required`);

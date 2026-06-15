@@ -156,13 +156,22 @@ export const PlaywrightModeConfigV1Schema = z
     playwright: z.object({
       configFile: z.string().min(1).default("playwright.config.ts"),
       testDir: z.string().min(1).default("tests"),
-      testMatch: z.array(z.string().min(1)).default(["**/*.spec.ts"])
+      testMatch: z.array(z.string().min(1)).default(["**/*.spec.ts"]),
+      assetRoots: z.array(z.string().min(1)).default(["tests"]),
+      resultsFile: z.string().min(1).default("test-results/harness-comet/results.json")
     }),
     docs: z
       .object({
         testingDir: z.string().min(1).default("docs/testing")
       })
-      .optional(),
+      .default({}),
+    incidents: z
+      .object({
+        directory: z.string().min(1).default("tests/incidents"),
+        requireIssueUrl: z.boolean().default(false),
+        requireReadme: z.boolean().default(true)
+      })
+      .default({}),
     impact: z
       .object({
         defaultMode: ImpactModeSchema.default("maintain"),
@@ -170,7 +179,13 @@ export const PlaywrightModeConfigV1Schema = z
         requireDesignDecision: z.boolean().default(true),
         requireVerifyEvidence: z.boolean().default(true)
       })
-      .optional()
+      .default({}),
+    validation: z
+      .object({
+        forbidOnly: z.boolean().default(true),
+        longWaitWarningMs: z.number().int().positive().default(5000)
+      })
+      .default({})
   })
   .strict();
 
@@ -178,6 +193,23 @@ export const HarnessCometConfigV1Schema = z.union([
   RuntimeModeConfigV1Schema,
   PlaywrightModeConfigV1Schema
 ]);
+
+export const IncidentRecordV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  issueUrl: z.string().url().optional(),
+  status: z.enum([
+    "created",
+    "reproducing",
+    "reproduced",
+    "fixed",
+    "verified",
+    "archived"
+  ]),
+  createdAt: z.string().min(1),
+  testFile: z.string().min(1)
+});
 
 export const DifferenceSchema = z.object({
   path: z.string(),
@@ -204,6 +236,59 @@ export const RunResultV1Schema = z.object({
   })
 });
 
+export const PlaywrightResultAttachmentV1Schema = z.object({
+  name: z.string().min(1),
+  contentType: z.string().min(1).optional(),
+  path: z.string().min(1).optional()
+});
+
+export const PlaywrightResultErrorV1Schema = z.object({
+  message: z.string().min(1),
+  value: z.string().optional(),
+  stack: z.string().optional()
+});
+
+export const PlaywrightTestResultV1Schema = z.object({
+  project: z.string().min(1).optional(),
+  file: z.string().min(1),
+  title: z.string().min(1),
+  tags: z.array(z.string().min(1)),
+  annotations: z.array(
+    z.object({
+      type: z.string().min(1),
+      description: z.string().optional()
+    })
+  ),
+  status: z.enum(["passed", "failed", "timedOut", "skipped", "interrupted"]),
+  duration: z.number().int().nonnegative(),
+  retry: z.number().int().nonnegative(),
+  errors: z.array(PlaywrightResultErrorV1Schema),
+  attachments: z.array(PlaywrightResultAttachmentV1Schema)
+});
+
+export const HarnessPlaywrightResultsV1Schema = z.object({
+  schemaVersion: z.literal(1),
+  generatedAt: z.string().min(1),
+  tests: z.array(PlaywrightTestResultV1Schema)
+});
+
+export const PlaywrightVerifyReceiptV2Schema = z.object({
+  schemaVersion: z.literal(2),
+  change: z.string().min(1),
+  action: z.enum(["none", "verify-existing", "update-or-create"]),
+  harnessCometVersion: z.string().min(1),
+  cometVersion: z.string().min(1),
+  gitTreeHash: z.string().min(1),
+  configHash: z.string().min(1),
+  assetHash: z.string().min(1),
+  targetTests: z.array(z.string().min(1)),
+  status: z.enum(["passed", "failed", "error", "not-applicable"]),
+  resultsPath: z.string().min(1),
+  reportPath: z.string().min(1),
+  evidenceCount: z.number().int().nonnegative(),
+  completedAt: z.string().min(1)
+});
+
 export type Difference = z.infer<typeof DifferenceSchema>;
 export type ScenarioBusinessV1 = z.infer<typeof ScenarioBusinessV1Schema>;
 export type FixtureBusinessV1 = z.infer<typeof FixtureBusinessV1Schema>;
@@ -218,6 +303,12 @@ export type ImpactDecision = z.infer<typeof ImpactDecisionSchema>;
 export type RuntimeModeConfigV1 = z.infer<typeof RuntimeModeConfigV1Schema>;
 export type PlaywrightModeConfigV1 = z.infer<typeof PlaywrightModeConfigV1Schema>;
 export type HarnessCometConfigV1 = z.infer<typeof HarnessCometConfigV1Schema>;
+export type IncidentRecordV1 = z.infer<typeof IncidentRecordV1Schema>;
+export type PlaywrightResultAttachmentV1 = z.infer<typeof PlaywrightResultAttachmentV1Schema>;
+export type PlaywrightResultErrorV1 = z.infer<typeof PlaywrightResultErrorV1Schema>;
+export type PlaywrightTestResultV1 = z.infer<typeof PlaywrightTestResultV1Schema>;
+export type HarnessPlaywrightResultsV1 = z.infer<typeof HarnessPlaywrightResultsV1Schema>;
+export type PlaywrightVerifyReceiptV2 = z.infer<typeof PlaywrightVerifyReceiptV2Schema>;
 
 export interface HarnessErrorShape {
   code: string;

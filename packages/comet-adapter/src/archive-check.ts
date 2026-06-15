@@ -19,6 +19,7 @@ import {
   buildVerificationFingerprint,
   buildVerificationFingerprintForMode,
   buildVerificationReportPath,
+  readPlaywrightVerifyReceipt,
   readVerifyReceipt
 } from "./verify.js";
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
@@ -154,35 +155,40 @@ async function archiveCheckPlaywrightCometChange(
       message: `Archive check requires verify_result=pass for ${change}`
     });
   }
-  if (impact.mode === "off") {
-    if (await projectHasPlaywrightHarnessAssets(projectRoot)) {
+  if (impact.action === "none") {
+    const receipt = await readPlaywrightVerifyReceipt(
+      path.join(resolveChangeRoot(projectRoot, change), ".comet", "harness", "verify-receipt.json")
+    );
+    if (receipt.action !== "none" || receipt.status !== "not-applicable") {
       throw new HarnessError({
-        code: "COMET_ARCHIVE_OFF_INVALID",
+        code: "COMET_ARCHIVE_RECEIPT_INVALID",
         category: "config",
-        message: `Harness Playwright Impact mode off is not allowed for an onboarded Harness project: ${change}`
+        message: `Archive check requires a not-applicable verify receipt for ${change}`
       });
     }
     return {
       change,
-      receiptPath: "not-applicable",
+      receiptPath: path.join(resolveChangeRoot(projectRoot, change), ".comet", "harness", "verify-receipt.json"),
       reportPath: buildVerificationReportPath(projectRoot, change),
-      gitTreeHash: "not-applicable",
+      gitTreeHash: receipt.gitTreeHash,
       status: "passed"
     };
   }
   const changeRoot = resolveChangeRoot(projectRoot, change);
   const receiptPath = path.join(changeRoot, ".comet", "harness", "verify-receipt.json");
-  const receipt = await readVerifyReceipt(receiptPath);
+  const receipt = await readPlaywrightVerifyReceipt(receiptPath);
   const selectedScenarios = (await extractPlaywrightTargetTestsFromDesign(projectRoot, change)).map(
-    (target) => target.scenarioId ?? target.path
+    (target) => target.path
   );
   const fingerprint = await buildVerificationFingerprintForMode(projectRoot, "playwright");
   if (
     receipt.status !== "passed" ||
+    receipt.action !== impact.action ||
     receipt.gitTreeHash !== fingerprint.gitTreeHash ||
     receipt.configHash !== fingerprint.configHash ||
     receipt.assetHash !== fingerprint.assetHash ||
-    JSON.stringify(receipt.selectedScenarios) !== JSON.stringify(selectedScenarios)
+    JSON.stringify(receipt.targetTests) !==
+      JSON.stringify(selectedScenarios.filter((target) => !target.endsWith(".retire")))
   ) {
     throw new HarnessError({
       code: "COMET_ARCHIVE_FINGERPRINT_MISMATCH",
@@ -200,6 +206,7 @@ async function archiveCheckPlaywrightCometChange(
       path: reportPath
     });
   }
+  await fs.access(path.join(projectRoot, receipt.resultsPath));
   return {
     change,
     receiptPath,

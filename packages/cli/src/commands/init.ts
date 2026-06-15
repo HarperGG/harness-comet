@@ -2,9 +2,16 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  playwrightAcceptanceCriteriaTemplate,
+  playwrightAttachmentsTemplate,
+  playwrightAuthoringGuideTemplate,
   playwrightConfigTemplate,
   playwrightExampleSpecTemplate,
+  playwrightFixturesTemplate,
   playwrightHarnessCometConfigTemplate,
+  playwrightIncidentGuideTemplate,
+  playwrightIncidentReadmeTemplate,
+  playwrightMockApiTemplate,
   testingReadmeTemplate
 } from "../templates/playwright-mode.js";
 
@@ -77,7 +84,10 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   const skipped: string[] = [];
   const testDir = options.testDir ?? "tests";
 
-  await fs.mkdir(path.join(root, testDir), { recursive: true });
+  await fs.mkdir(path.join(root, testDir, "journeys"), { recursive: true });
+  await fs.mkdir(path.join(root, testDir, "incidents"), { recursive: true });
+  await fs.mkdir(path.join(root, testDir, "data"), { recursive: true });
+  await fs.mkdir(path.join(root, testDir, "support"), { recursive: true });
   await fs.mkdir(path.join(root, "docs", "testing"), { recursive: true });
 
   await writeFileSafe(
@@ -97,10 +107,58 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
     skipped
   );
   await writeFileSafe(
-    path.join(root, testDir, "example.spec.ts"),
+    path.join(root, testDir, "journeys", "example-save-flow.spec.ts"),
     playwrightExampleSpecTemplate(),
     false,
-    `${normalizePath(testDir)}/example.spec.ts`,
+    `${normalizePath(testDir)}/journeys/example-save-flow.spec.ts`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "incidents", "README.md"),
+    playwrightIncidentReadmeTemplate(),
+    false,
+    `${normalizePath(testDir)}/incidents/README.md`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "data", "example-input.json"),
+    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by harness" }, null, 2)}\n`,
+    false,
+    `${normalizePath(testDir)}/data/example-input.json`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "data", "example-expected-payload.json"),
+    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by harness" }, null, 2)}\n`,
+    false,
+    `${normalizePath(testDir)}/data/example-expected-payload.json`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "support", "mock-api.ts"),
+    playwrightMockApiTemplate(),
+    false,
+    `${normalizePath(testDir)}/support/mock-api.ts`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "support", "attachments.ts"),
+    playwrightAttachmentsTemplate(),
+    false,
+    `${normalizePath(testDir)}/support/attachments.ts`,
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, testDir, "fixtures.ts"),
+    playwrightFixturesTemplate(),
+    false,
+    `${normalizePath(testDir)}/fixtures.ts`,
     created,
     skipped
   );
@@ -109,6 +167,30 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
     testingReadmeTemplate(),
     false,
     "docs/testing/README.md",
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, "docs", "testing", "authoring-guide.md"),
+    playwrightAuthoringGuideTemplate(),
+    false,
+    "docs/testing/authoring-guide.md",
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, "docs", "testing", "incident-guide.md"),
+    playwrightIncidentGuideTemplate(),
+    false,
+    "docs/testing/incident-guide.md",
+    created,
+    skipped
+  );
+  await writeFileSafe(
+    path.join(root, "docs", "testing", "acceptance-criteria.md"),
+    playwrightAcceptanceCriteriaTemplate(),
+    false,
+    "docs/testing/acceptance-criteria.md",
     created,
     skipped
   );
@@ -280,20 +362,25 @@ async function installPlaywrightBrowsers(root: string): Promise<boolean> {
 }
 
 async function detectPackageManager(root: string): Promise<"pnpm" | "npm" | "yarn"> {
-  const candidates: Array<{ file: string; manager: "pnpm" | "npm" | "yarn" }> = [
-    { file: "pnpm-lock.yaml", manager: "pnpm" },
-    { file: "package-lock.json", manager: "npm" },
-    { file: "yarn.lock", manager: "yarn" }
-  ];
-  for (const candidate of candidates) {
-    try {
-      await fs.access(path.join(root, candidate.file));
-      return candidate.manager;
-    } catch {
-      // try next
+  const resolve = await loadDetectPackageManager();
+  return resolve(root);
+}
+
+async function loadDetectPackageManager(): Promise<
+  (root: string) => Promise<"pnpm" | "npm" | "yarn">
+> {
+  try {
+    const core = await import("@harness-comet/core");
+    if ("detectPackageManager" in core) {
+      return core.detectPackageManager;
     }
+  } catch {
+    // Fall back to local source during workspace development.
   }
-  return "pnpm";
+
+  const sourceModuleUrl = new URL("../../../core/src/package-manager.ts", import.meta.url);
+  const source = await import(sourceModuleUrl.href);
+  return source.detectPackageManager;
 }
 
 function sortObject(input: Record<string, string>): Record<string, string> {

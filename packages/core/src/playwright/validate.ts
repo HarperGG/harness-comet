@@ -1,20 +1,26 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import type { PlaywrightModeConfigV1 } from "@harness-comet/schema";
 import { HarnessError } from "../errors.js";
-import {
-  discoverPlaywrightHarnessAssets,
-  type PlaywrightHarnessAssets
-} from "./discovery.js";
+import type { PackageManagerName } from "../package-manager.js";
+import { validatePlaywrightIncidents } from "./incidents.js";
+import { listPlaywrightTests, type ListedPlaywrightTest } from "./list.js";
 
 export interface ValidatePlaywrightHarnessProjectOptions {
   root: string;
   playwright: PlaywrightModeConfigV1["playwright"];
+  incidents?: PlaywrightModeConfigV1["incidents"];
+  packageManager?: PackageManagerName;
+  reporterModulePath?: string;
+  runCommand?: (
+    command: string,
+    args: string[],
+    options: { cwd: string; env: NodeJS.ProcessEnv }
+  ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
 }
 
 export interface PlaywrightValidationResult {
   ok: boolean;
-  assets: PlaywrightHarnessAssets;
+  assets: { tests: ListedPlaywrightTest[] };
   errors: HarnessError[];
   warnings: HarnessError[];
 }
@@ -36,29 +42,65 @@ export async function validatePlaywrightHarnessProject(
     errors
   );
 
-  const assets = await discoverPlaywrightHarnessAssets({
-    root: options.root,
-    testDir: options.playwright.testDir,
-    testMatch: options.playwright.testMatch
-  });
+  let tests: ListedPlaywrightTest[] = [];
+  try {
+    tests = await listPlaywrightTests({
+      root: options.root,
+      configFile: options.playwright.configFile,
+      packageManager: options.packageManager,
+      reporterModulePath: options.reporterModulePath,
+      runCommand: options.runCommand
+    });
+  } catch (error) {
+    errors.push(
+      error instanceof HarnessError
+        ? error
+        : new HarnessError({
+            code: "PLAYWRIGHT_LIST_FAILED",
+            category: "playwright",
+            message: error instanceof Error ? error.message : String(error)
+          })
+    );
+  }
 
-  const scenarioCount = assets.tests.reduce((count, test) => count + test.scenarios.length, 0);
-  if (scenarioCount === 0) {
+  if (tests.length === 0) {
     errors.push(
       new HarnessError({
-        code: "PLAYWRIGHT_METADATA_MISSING",
-        category: "schema",
-        message: "No defineHarnessScenario metadata found in Playwright tests"
+        code: "PLAYWRIGHT_TESTS_MISSING",
+        category: "selection",
+        message: "No Playwright tests were collected"
       })
     );
   }
 
-  return { ok: errors.length === 0, assets, errors, warnings };
+  if (!tests.some((test) => test.tags.includes("@harness"))) {
+    warnings.push(
+      new HarnessError({
+        code: "PLAYWRIGHT_HARNESS_TAGS_MISSING",
+        category: "playwright",
+        message: "No Playwright tests are tagged with @harness"
+      })
+    );
+  }
+
+  const incidentResult = await validatePlaywrightIncidents(options.root, {
+    incidentsDirectory:
+      options.incidents?.directory ??
+      (options.playwright.testDir === "tests"
+        ? "tests/incidents"
+        : path.join(options.playwright.testDir, "incidents")),
+    requireIssueUrl: options.incidents?.requireIssueUrl ?? false,
+    requireReadme: options.incidents?.requireReadme ?? true
+  });
+  errors.push(...incidentResult.errors);
+  warnings.push(...incidentResult.warnings);
+
+  return { ok: errors.length === 0, assets: { tests }, errors, warnings };
 }
 
 async function requirePath(file: string, code: string, errors: HarnessError[]): Promise<void> {
   try {
-    await fs.access(file);
+    await import("node:fs/promises").then((fs) => fs.access(file));
   } catch {
     errors.push(
       new HarnessError({

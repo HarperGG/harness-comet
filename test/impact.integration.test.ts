@@ -126,18 +126,22 @@ describe("impact command integration", () => {
       "set",
       "--change",
       "demo-change",
-      "--mode",
-      "maintain",
+      "--action",
+      "verify-existing",
       "--reason",
-      "existing playwright coverage only"
+      "existing playwright coverage only",
+      "--confirmed-by",
+      "user"
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("MODE maintain");
+    expect(result.stdout).toContain("ACTION verify-existing");
+    expect(result.stdout).toContain("CONFIRMED_BY user");
     const design = await readFile(path.join(root, "openspec", "changes", "demo-change", "design.md"), "utf8");
     expect(design).toContain("## Harness Playwright Impact");
-    expect(design).toContain("- Mode: maintain");
+    expect(design).toContain("- Action: verify-existing");
     expect(design).toContain("- Reason: existing playwright coverage only");
+    expect(design).toContain("- Confirmed by: user");
     expect(design).not.toContain("## Harness Impact");
   });
 

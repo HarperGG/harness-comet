@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { defineHarnessScenario, harnessAnnotation } from "./index.js";
+import {
+  defineHarnessScenario,
+  harnessAnnotation,
+  HarnessCometListReporter,
+  HarnessCometReporter
+} from "./index.js";
 
 describe("defineHarnessScenario", () => {
   it("returns normalized metadata", () => {
@@ -33,5 +38,10 @@ describe("defineHarnessScenario", () => {
       type: "harness-scenario",
       description: "example-smoke"
     });
+  });
+
+  it("re-exports the list and results reporters", () => {
+    expect(HarnessCometListReporter).toBeTypeOf("function");
+    expect(HarnessCometReporter).toBeTypeOf("function");
   });
 });

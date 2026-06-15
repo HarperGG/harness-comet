@@ -60,25 +60,27 @@ async function createPlaywrightChange(root: string, change: string): Promise<voi
     change,
     `## Harness Playwright Impact
 
-- Mode: maintain
+- Action: verify-existing
 - Reason: existing business contract still applies
-- Affected capabilities:
-  - component: example | capability: render-page | behavior: show-page | risk: low
-- Existing Playwright assets:
-  - path: tests/example.spec.ts | relation: same-contract
-- Preliminary decision: update
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
 
-## Harness Playwright Design
+## Harness Playwright Plan
 
-- Mode: maintain
-- Decision: update
-- Decision Reason: same contract with a small UI adjustment
-- Target tests:
-  - path: tests/example.spec.ts | scenarioId: example-smoke | action: update | reason: same contract
-- Related files:
-  - path: playwright.config.ts | reason: config remains unchanged
-- Verification commands:
-  - pnpm exec playwright test tests/example.spec.ts
+- Action: verify-existing
+
+### Target tests
+
+- path: tests/example.spec.ts | operation: update | reason: same contract
+
+### Related test assets
+
+- path: playwright.config.ts | reason: config remains unchanged
+
+### Expected evidence
+
+- playwright test tests/example.spec.ts
 `
   );
 }
@@ -155,25 +157,27 @@ describe("comet playwright hook integration", () => {
       "demo-change",
       `## Harness Playwright Impact
 
-- Mode: maintain
+- Action: verify-existing
 - Reason: same contract still applies
-- Affected capabilities:
-  - component: example | capability: render-page | behavior: show-page | risk: low
-- Existing Playwright assets:
-  - path: tests/example.spec.ts | relation: same-contract
-- Preliminary decision: update
+- Confirmed by: user
+- Reviewed existing tests:
+  - tests/example.spec.ts
 
-## Harness Playwright Design
+## Harness Playwright Plan
 
-- Mode: maintain
-- Decision: create
-- Decision Reason: adding a convenient new regression test
-- Target tests:
-  - path: tests/new-flow.spec.ts | scenarioId: new-flow | action: create | reason: convenience coverage
-- Related files:
-  - path: playwright.config.ts | reason: config remains unchanged
-- Verification commands:
-  - pnpm exec playwright test tests/new-flow.spec.ts
+- Action: verify-existing
+
+### Target tests
+
+- path: tests/new-flow.spec.ts | operation: create | reason: convenience coverage
+
+### Related test assets
+
+- path: playwright.config.ts | reason: config remains unchanged
+
+### Expected evidence
+
+- playwright test tests/new-flow.spec.ts
 `
     );
 
@@ -185,11 +189,11 @@ describe("comet playwright hook integration", () => {
 
     expect(result.exitCode).not.toBe(0);
     expect(`${result.stdout}\n${result.stderr}`).toContain(
-      "cannot create new test assets"
+      "Target operation create is not allowed for action verify-existing"
     );
   });
 
-  it("open hook rejects off mode for an onboarded Playwright project", async () => {
+  it("open hook allows action none for onboarded Playwright projects", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "comet-pw-open-off-"));
     await createPlaywrightProject(root);
@@ -198,38 +202,30 @@ describe("comet playwright hook integration", () => {
       "demo-change",
       `## Harness Playwright Impact
 
-- Mode: off
+- Action: none
 - Reason: agent believes no harness changes are required
-- Affected capabilities:
-  - component: example | capability: render-page | behavior: show-page | risk: low
-- Existing Playwright assets:
-  - path: tests/example.spec.ts | relation: same-contract
-- Preliminary decision: none
+- Confirmed by: user
 
-## Harness Playwright Design
+## Harness Playwright Plan
 
-- Mode: off
-- Decision: none
-- Decision Reason: skip playwright changes
-- Target tests:
-  - path: tests/example.spec.ts | scenarioId: example-smoke | action: reuse | reason: unchanged
-- Related files:
-  - path: playwright.config.ts | reason: unchanged
-- Verification commands:
-  - pnpm exec playwright test tests/example.spec.ts
+- Action: none
+- Reason: skip playwright changes
 `
     );
 
-    const result = await execa(
-      "pnpm",
-      [...cli, "--root", root, "comet", "hook", "open", "--change", "demo-change"],
-      { reject: false }
-    );
+    const result = await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "comet",
+      "hook",
+      "open",
+      "--change",
+      "demo-change"
+    ]);
 
-    expect(result.exitCode).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain(
-      "mode off is not allowed for an onboarded Harness project"
-    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("HOOK open");
   });
 
   it("build hook validates target tests and metadata", async () => {

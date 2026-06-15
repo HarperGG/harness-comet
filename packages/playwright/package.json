@@ -6,11 +6,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./reporter": {
+      "types": "./dist/reporter.d.ts",
+      "import": "./dist/reporter.js"
+    },
+    "./list-reporter": {
+      "types": "./dist/list-reporter.d.ts",
+      "import": "./dist/list-reporter.js"
     }
   },
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@harness-comet/schema": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

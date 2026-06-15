@@ -9,20 +9,20 @@ import {
   HarnessError
 } from "@harness-comet/core";
 import {
-  designDeclaresPlaywrightCreation,
   ensureChangeRoot,
   extractScenarioIdsFromDesign,
   parseAssetDecisionTable,
+  type PlaywrightHarnessAction,
+  type PlaywrightHarnessDesignRecord,
+  type PlaywrightHarnessImpactRecord,
+  type PlaywrightTargetOperation,
   readHarnessImpact,
   readPlaywrightHarnessDesign,
   readPlaywrightHarnessImpact,
   resolveDesignDocPath,
   extractPathsFromStructuredBullets
 } from "./change.js";
-import {
-  classifyPlaywrightAssetPath,
-  isDecisionAllowedForMode
-} from "./playwright-impact-policy.js";
+import { classifyPlaywrightAssetPath } from "./playwright-impact-policy.js";
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
 
 export interface CometHookReport {
@@ -257,46 +257,36 @@ async function runCometPlaywrightOpenHook(
       path: designPath
     });
   }
-  if (impact.mode === "full" || impact.mode === "maintain") {
-    if (impact.affectedCapabilities.length === 0) {
-      throw new HarnessError({
-        code: "COMET_OPEN_CAPABILITIES_MISSING",
-        category: "config",
-        message: `Harness Playwright Impact must declare affected capabilities for ${change}`,
-        path: designPath
-      });
-    }
-    if (impact.existingPlaywrightAssets.length === 0) {
-      throw new HarnessError({
-        code: "COMET_OPEN_CANDIDATES_MISSING",
-        category: "config",
-        message: `Harness Playwright Impact must declare existing Playwright assets for ${change}`,
-        path: designPath
-      });
-    }
-    if (!impact.preliminaryDecision) {
-      throw new HarnessError({
-        code: "COMET_OPEN_DECISIONS_MISSING",
-        category: "config",
-        message: `Harness Playwright Impact must declare a preliminary decision for ${change}`,
-        path: designPath
-      });
-    }
-    if (!/harness/i.test(tasks)) {
-      throw new HarnessError({
-        code: "COMET_OPEN_TASKS_INVALID",
-        category: "config",
-        message: `Harness tasks are required in tasks.md for ${change}`,
-        path: tasksPath
-      });
-    }
-  }
-  if (impact.mode === "off" && (await projectHasHarnessAssets(projectRoot))) {
+  if (!["none", "verify-existing", "update-or-create"].includes(impact.action)) {
     throw new HarnessError({
-      code: "COMET_OPEN_OFF_INVALID",
+      code: "COMET_OPEN_DECISIONS_MISSING",
       category: "config",
-      message: `Harness Playwright Impact mode off is not allowed for an onboarded Harness project: ${change}`,
+      message: `Harness Playwright Impact action is required for ${change}`,
       path: designPath
+    });
+  }
+  if (!["user", "agent"].includes(impact.confirmedBy)) {
+    throw new HarnessError({
+      code: "COMET_OPEN_CONFIRMED_BY_INVALID",
+      category: "config",
+      message: `Harness Playwright Impact confirmed by is required for ${change}`,
+      path: designPath
+    });
+  }
+  if (impact.confirmedAt && Number.isNaN(Date.parse(impact.confirmedAt))) {
+    throw new HarnessError({
+      code: "COMET_OPEN_CONFIRMED_AT_INVALID",
+      category: "config",
+      message: `Harness Playwright Impact confirmed at must be an ISO timestamp for ${change}`,
+      path: designPath
+    });
+  }
+  if (!/harness/i.test(tasks)) {
+    throw new HarnessError({
+      code: "COMET_OPEN_TASKS_INVALID",
+      category: "config",
+      message: `Harness tasks are required in tasks.md for ${change}`,
+      path: tasksPath
     });
   }
   return { hook: "open", change, status: "passed" };
@@ -308,62 +298,30 @@ async function runCometPlaywrightDesignHook(
 ): Promise<CometHookReport> {
   const { path: designPath, impact } = await readPlaywrightHarnessImpact(projectRoot, change);
   const { design } = await readPlaywrightHarnessDesign(projectRoot, change);
-  if (design.mode !== impact.mode) {
+  if (design.action !== impact.action) {
     throw new HarnessError({
       code: "COMET_DESIGN_MODE_MISMATCH",
       category: "config",
-      message: `Harness Playwright Design mode must match Harness Playwright Impact mode for ${change}`,
+      message: `Harness Playwright Plan action must match Harness Playwright Impact action for ${change}`,
       path: designPath
     });
   }
-  if (!design.decision) {
+  const project = await loadHarnessCometConfig({ root: projectRoot });
+  if (project.config.mode !== "playwright") {
     throw new HarnessError({
-      code: "COMET_DESIGN_DECISION_INVALID",
+      code: "COMET_BUILD_MODE_INVALID",
       category: "config",
-      message: `Harness Playwright Design decision is required for ${change}`,
+      message: `Playwright design hook requires mode=playwright for ${change}`,
       path: designPath
     });
   }
-  if (design.mode === "maintain" && designDeclaresPlaywrightCreation(design)) {
-    throw new HarnessError({
-      code: "COMET_DESIGN_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
-      category: "config",
-      message: `Harness Playwright Design mode maintain cannot create new test assets for ${change}`,
-      path: designPath
-    });
-  }
-  if (impact.mode === "off" && design.decision !== "none") {
-    throw new HarnessError({
-      code: "COMET_DESIGN_OFF_INVALID",
-      category: "config",
-      message: `Harness Playwright Design must use decision none when mode is off for ${change}`,
-      path: designPath
-    });
-  }
-  if (!isDecisionAllowedForMode(design.mode, design.decision)) {
-    throw new HarnessError({
-      code: "COMET_DESIGN_PLAYWRIGHT_DECISION_INVALID",
-      category: "config",
-      message: `Harness Playwright Design decision ${design.decision} is not allowed in mode ${design.mode} for ${change}`,
-      path: designPath
-    });
-  }
-  if (design.targetTests.length === 0 && impact.mode !== "off") {
-    throw new HarnessError({
-      code: "COMET_DESIGN_FIELD_MISSING",
-      category: "config",
-      message: `Harness Playwright Design target tests are required for ${change}`,
-      path: designPath
-    });
-  }
-  if (design.verificationCommands.length === 0 && impact.mode !== "off") {
-    throw new HarnessError({
-      code: "COMET_DESIGN_FIELD_MISSING",
-      category: "config",
-      message: `Harness Playwright Design verification commands are required for ${change}`,
-      path: designPath
-    });
-  }
+  await validatePlaywrightPlanTargets(
+    projectRoot,
+    project.config.playwright.testDir,
+    designPath,
+    impact,
+    design
+  );
   return { hook: "design", change, status: "passed" };
 }
 
@@ -388,28 +346,15 @@ async function runCometPlaywrightBuildHook(
     testMatch: project.config.playwright.testMatch
   });
   const filesByPath = new Map(assets.tests.map((asset) => [normalizePath(asset.path), asset]));
-  for (const target of design.targetTests) {
-    const expected = normalizePath(path.resolve(projectRoot, target.path));
-    const asset = filesByPath.get(expected);
-    if (!asset) {
-      throw new HarnessError({
-        code: "COMET_BUILD_SCENARIO_MISSING",
-        category: "selection",
-        message: `Design-declared Playwright test not found: ${target.path}`,
-        path: designPath
-      });
-    }
-    if (asset.scenarios.length === 0) {
-      throw new HarnessError({
-        code: "COMET_BUILD_METADATA_MISSING",
-        category: "config",
-        message: `Playwright test is missing defineHarnessScenario metadata: ${target.path}`,
-        path: designPath
-      });
-    }
-  }
+  await validatePlaywrightPlanTargets(
+    projectRoot,
+    project.config.playwright.testDir,
+    designPath,
+    impact,
+    design
+  );
   const unauthorizedCreates = await findUnauthorizedPlaywrightCreates(projectRoot, impact, design);
-  if (design.mode === "maintain" && unauthorizedCreates.length > 0) {
+  if (impact.action === "verify-existing" && unauthorizedCreates.length > 0) {
     throw new HarnessError({
       code: "COMET_BUILD_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
       category: "config",
@@ -417,7 +362,7 @@ async function runCometPlaywrightBuildHook(
       path: designPath
     });
   }
-  if (design.mode === "off" && unauthorizedCreates.length > 0) {
+  if (impact.action === "none" && unauthorizedCreates.length > 0) {
     throw new HarnessError({
       code: "COMET_BUILD_PLAYWRIGHT_OFF_INVALID",
       category: "config",
@@ -430,17 +375,15 @@ async function runCometPlaywrightBuildHook(
 
 export async function findUnauthorizedPlaywrightCreates(
   projectRoot: string,
-  impact: { existingPlaywrightAssets: string[]; mode: "full" | "maintain" | "off" },
+  impact: Pick<PlaywrightHarnessImpactRecord, "reviewedTests" | "action">,
   design: {
-    targetTests: Array<{ path: string; action: string }>;
+    targetTests: Array<{ path: string; operation: string }>;
     relatedFiles: Array<{ path: string }>;
   }
 ): Promise<string[]> {
-  const existing = new Set(
-    extractPathsFromStructuredBullets(impact.existingPlaywrightAssets).map(normalizeRelativePath)
-  );
+  const existing = new Set(impact.reviewedTests.map(normalizeRelativePath));
   const implicated = [
-    ...design.targetTests.map((target) => ({ path: target.path, action: target.action })),
+    ...design.targetTests.map((target) => ({ path: target.path, action: target.operation })),
     ...design.relatedFiles.map((file) => ({ path: file.path, action: "" }))
   ];
 
@@ -454,6 +397,78 @@ export async function findUnauthorizedPlaywrightCreates(
     .filter((entry) => entry.classification.kind !== "config")
     .filter((entry) => !existing.has(entry.relativePath))
     .map((entry) => entry.relativePath);
+}
+
+async function validatePlaywrightPlanTargets(
+  projectRoot: string,
+  testDir: string,
+  designPath: string,
+  impact: Pick<PlaywrightHarnessImpactRecord, "action">,
+  design: PlaywrightHarnessDesignRecord
+): Promise<void> {
+  if (impact.action === "none") {
+    if (design.targetTests.length > 0) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_OFF_INVALID",
+        category: "config",
+        message: "Harness Playwright Plan action none cannot declare target tests",
+        path: designPath
+      });
+    }
+    return;
+  }
+
+  if (design.targetTests.length === 0) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_FIELD_MISSING",
+      category: "config",
+      message: `Harness Playwright Plan target tests are required`,
+      path: designPath
+    });
+  }
+
+  const allowed =
+    impact.action === "verify-existing"
+      ? new Set<PlaywrightTargetOperation>(["verify", "update"])
+      : new Set<PlaywrightTargetOperation>(["verify", "update", "create", "retire"]);
+
+  for (const target of design.targetTests) {
+    if (!allowed.has(target.operation)) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_PLAYWRIGHT_DECISION_INVALID",
+        category: "config",
+        message: `Target operation ${target.operation} is not allowed for action ${impact.action}`,
+        path: designPath
+      });
+    }
+    if (!target.reason) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_FIELD_MISSING",
+        category: "config",
+        message: `Each target test must include a reason`,
+        path: designPath
+      });
+    }
+    if (!isPathInsideTestDir(projectRoot, testDir, target.path)) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_FIELD_MISSING",
+        category: "config",
+        message: `Target test must stay within ${testDir}: ${target.path}`,
+        path: designPath
+      });
+    }
+    if (
+      target.operation !== "create" &&
+      !(await fsExists(path.resolve(projectRoot, target.path)))
+    ) {
+      throw new HarnessError({
+        code: "COMET_BUILD_SCENARIO_MISSING",
+        category: "selection",
+        message: `Design-declared Playwright test not found: ${target.path}`,
+        path: designPath
+      });
+    }
+  }
 }
 
 async function readRequiredFile(filePath: string, code: string, message: string): Promise<string> {
@@ -530,6 +545,23 @@ const GENERIC_EVIDENCE = new Set(["", "none", "impact-analyze", "pending", "pend
 
 function containsCreateDecision(values: string[]): boolean {
   return values.some((value) => /\bcreate\b/i.test(value));
+}
+
+async function fsExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isPathInsideTestDir(projectRoot: string, testDir: string, candidatePath: string): boolean {
+  if (path.isAbsolute(candidatePath)) return false;
+  const resolvedTestDir = path.resolve(projectRoot, testDir);
+  const resolvedCandidate = path.resolve(projectRoot, candidatePath);
+  const relative = path.relative(resolvedTestDir, resolvedCandidate);
+  return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
 function normalizeRelativePath(filePath: string): string {

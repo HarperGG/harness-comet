@@ -5,16 +5,27 @@ export function playwrightHarnessCometConfigTemplate(testDir = "tests"): string 
   playwright: {
     configFile: "playwright.config.ts",
     testDir: "${testDir}",
-    testMatch: ["**/*.spec.ts"]
+    testMatch: ["**/*.spec.ts"],
+    assetRoots: ["${testDir}"],
+    resultsFile: "test-results/harness-comet/results.json"
   },
   docs: {
     testingDir: "docs/testing"
+  },
+  incidents: {
+    directory: "${testDir}/incidents",
+    requireIssueUrl: false,
+    requireReadme: true
   },
   impact: {
     defaultMode: "maintain",
     requireOpenImpact: true,
     requireDesignDecision: true,
     requireVerifyEvidence: true
+  },
+  validation: {
+    forbidOnly: true,
+    longWaitWarningMs: 5000
   }
 };
 `;
@@ -55,27 +66,157 @@ export default defineConfig({
 }
 
 export function playwrightExampleSpecTemplate(): string {
-  return `import { test, expect } from "@playwright/test";
-import { defineHarnessScenario, harnessAnnotation } from "@harness-comet/playwright";
+  return `import { expect, test } from "@playwright/test";
+import input from "../data/example-input.json" with { type: "json" };
+import expectedPayload from "../data/example-expected-payload.json" with { type: "json" };
+import { attachJson } from "../support/attachments";
+import { mockJson } from "../support/mock-api";
 
-const scenario = defineHarnessScenario({
-  id: "example-smoke",
-  title: "Example smoke",
-  component: "example",
-  capability: "render-page",
-  behavior: "show-example-page",
-  contract: "example-page-visible",
-  kind: "smoke",
-  risk: "low",
-  tags: ["smoke"]
-});
+test(
+  "Example save flow",
+  {
+    tag: ["@harness", "@annotation-save"]
+  },
+  async ({ page }, testInfo) => {
+    const captured: unknown[] = [];
 
-test(scenario.title, async ({ page }, testInfo) => {
-  testInfo.annotations.push(harnessAnnotation(scenario));
+    await mockJson(page, "**/api/bootstrap", {
+      featureFlags: { annotationSave: true }
+    });
 
-  await page.goto("data:text/html,<title>Harness</title><main>Hello Harness</main>");
-  await expect(page.getByText("Hello Harness")).toBeVisible();
-});
+    await page.route("**/api/annotations", async (route) => {
+      const request = route.request();
+      captured.push(JSON.parse(request.postData() ?? "{}"));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, saved: true })
+      });
+    });
+
+    await page.setContent(\`
+      <main>
+        <h1>Annotation Editor</h1>
+        <label>
+          Label
+          <input data-testid="label" />
+        </label>
+        <label>
+          Comment
+          <textarea data-testid="comment"></textarea>
+        </label>
+        <button data-testid="save">Save</button>
+        <output data-testid="status"></output>
+      </main>
+      <script>
+        window.__bootstrap = {"featureFlags":{"annotationSave":true}};
+        document.querySelector('[data-testid="save"]').addEventListener('click', async () => {
+          const payload = {
+            id: "annotation-1",
+            label: document.querySelector('[data-testid="label"]').value,
+            comment: document.querySelector('[data-testid="comment"]').value
+          };
+          await fetch('/api/annotations', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          document.querySelector('[data-testid="status"]').textContent = 'Saved';
+        });
+      </script>
+    \`);
+
+    await page.getByTestId("label").fill((input as { label: string }).label);
+    await page.getByTestId("comment").fill((input as { comment: string }).comment);
+    await page.getByTestId("save").click();
+
+    await expect(page.getByTestId("status")).toHaveText("Saved");
+    expect(captured[0]).toEqual(expectedPayload);
+    await attachJson(testInfo, "captured-payload", captured[0]);
+  }
+);
+`;
+}
+
+export function playwrightFixturesTemplate(): string {
+  return `export const harnessBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+`;
+}
+
+export function playwrightMockApiTemplate(): string {
+  return `import type { Page } from "@playwright/test";
+
+export async function mockJson(
+  page: Page,
+  url: string,
+  body: unknown,
+  status = 200
+): Promise<void> {
+  await page.route(url, async (route) => {
+    await route.fulfill({
+      status,
+      contentType: "application/json",
+      body: JSON.stringify(body)
+    });
+  });
+}
+`;
+}
+
+export function playwrightAttachmentsTemplate(): string {
+  return `import type { TestInfo } from "@playwright/test";
+
+export async function attachJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
+  await testInfo.attach(\`\${name}.json\`, {
+    body: Buffer.from(JSON.stringify(value, null, 2)),
+    contentType: "application/json"
+  });
+}
+`;
+}
+
+export function playwrightIncidentReadmeTemplate(): string {
+  return `# Incident Tests
+
+Store incident-focused Playwright assets here. Each incident should have:
+
+- an incident metadata file
+- a focused spec
+- input and expected payload fixtures
+- a README describing reproduction and verification notes
+`;
+}
+
+export function playwrightAuthoringGuideTemplate(): string {
+  return `# Authoring Guide
+
+Prefer one business behavior per Playwright test file. Keep the test focused on:
+
+- deterministic fixtures
+- request mocking
+- payload capture
+- clear assertions
+- attached JSON evidence
+`;
+}
+
+export function playwrightIncidentGuideTemplate(): string {
+  return `# Incident Guide
+
+Use \`harness-comet create incident <id>\` to scaffold incident assets, then keep the spec and fixture files close to the incident metadata.
+`;
+}
+
+export function playwrightAcceptanceCriteriaTemplate(): string {
+  return `# Acceptance Criteria
+
+Every Playwright Harness change should leave behind:
+
+- declared target tests
+- verification evidence
+- results JSON
+- a markdown verify report
+- a receipt that archive-check can validate
 `;
 }
 

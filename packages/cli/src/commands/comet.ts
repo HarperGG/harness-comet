@@ -131,7 +131,12 @@ export function registerCometCommands(
           return;
         }
         process.stdout.write(formatVerifyReport(report));
-        process.exitCode = report.result === "passed" ? 0 : report.result === "failed" ? 1 : 4;
+        process.exitCode =
+          report.result === "passed" || report.result === "not-applicable"
+            ? 0
+            : report.result === "failed"
+              ? 1
+              : 4;
       })
     );
   comet
