@@ -365,9 +365,10 @@ async function runCometPlaywrightBuildHook(
   }
   if (impact.action === "none" && unauthorizedCreates.length > 0) {
     throw new HarnessError({
-      code: "COMET_BUILD_PLAYWRIGHT_OFF_INVALID",
+      code: "PLAYWRIGHT_CREATE_NOT_ALLOWED",
       category: "config",
-      message: `Off mode cannot create Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      message: `Action none cannot create Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      hint: "Remove create operations or change the Action to update-or-create.",
       path: designPath
     });
   }

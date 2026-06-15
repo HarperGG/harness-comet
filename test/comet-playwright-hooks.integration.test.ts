@@ -248,4 +248,38 @@ describe("comet playwright hook integration", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("HOOK build");
   });
+
+  it("build hook rejects create operations in off mode with the new error wording", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
+    const root = await mkdtemp(path.join(tmpdir(), "comet-pw-build-off-create-"));
+    await createPlaywrightProject(root);
+    await createPlaywrightChangeWithDoc(
+      root,
+      "demo-change",
+      `## Harness Playwright Impact
+
+- Action: none
+- Reason: no harness changes are required
+- Confirmed by: user
+
+## Harness Playwright Plan
+
+- Action: none
+
+### Related test assets
+
+- path: tests/support/new-helper.ts | reason: off mode should not create new assets
+`
+    );
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "hook", "build", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("Action none cannot create Playwright assets");
+    expect(`${result.stdout}\n${result.stderr}`).toContain("tests/support/new-helper.ts");
+  });
 });
