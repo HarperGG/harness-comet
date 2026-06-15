@@ -11,6 +11,7 @@ import {
   readChangeCometYaml,
   extractPlaywrightTargetTestsFromDesign,
   extractScenarioIdsFromDesign,
+  getRunnablePlaywrightTargets,
   readHarnessImpact,
   readPlaywrightHarnessImpact,
   resolveChangeRoot
@@ -178,7 +179,8 @@ async function archiveCheckPlaywrightCometChange(
       });
     }
     const reportPath = buildVerificationReportPath(projectRoot, change);
-    await fs.access(reportPath);
+    const report = await fs.readFile(reportPath, "utf8");
+    validatePlaywrightNoneArchiveReport(report, receipt, change, reportPath);
     return {
       change,
       receiptPath,
@@ -191,9 +193,7 @@ async function archiveCheckPlaywrightCometChange(
   const receiptPath = path.join(changeRoot, ".comet", "harness", "verify-receipt.json");
   const receipt = await readPlaywrightVerifyReceipt(receiptPath);
   const targetTests = await extractPlaywrightTargetTestsFromDesign(projectRoot, change);
-  const selectedScenarios = targetTests
-    .filter((target) => target.operation !== "retire")
-    .map((target) => target.path);
+  const selectedScenarios = getRunnablePlaywrightTargets(targetTests).map((target) => target.path);
   const fingerprint = await buildVerificationFingerprintForMode(projectRoot, "playwright");
   if (
     receipt.status !== "passed" ||
@@ -227,6 +227,55 @@ async function archiveCheckPlaywrightCometChange(
     gitTreeHash: fingerprint.gitTreeHash,
     status: "passed"
   };
+}
+
+function validatePlaywrightNoneArchiveReport(
+  report: string,
+  receipt: Awaited<ReturnType<typeof readPlaywrightVerifyReceipt>>,
+  change: string,
+  reportPath: string
+): void {
+  if (!report.includes("## Harness Playwright Verification")) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_REPORT_SECTION_MISSING",
+      category: "config",
+      message: `Comet verification report is missing the Harness Playwright Verification section for ${change}`,
+      path: reportPath
+    });
+  }
+  if (!report.includes("- Action: none")) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_REPORT_ACTION_MISMATCH",
+      category: "config",
+      message: `Comet verification report action mismatch for ${change}`,
+      path: reportPath
+    });
+  }
+  if (!report.includes("- Status: NOT-APPLICABLE")) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_REPORT_STATUS_MISMATCH",
+      category: "config",
+      message: `Comet verification report status mismatch for ${change}`,
+      path: reportPath
+    });
+  }
+  const expectedReceiptLine = `- Receipt: \`openspec/changes/${change}/.comet/harness/verify-receipt.json\``;
+  if (!report.includes(expectedReceiptLine)) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_REPORT_RECEIPT_MISMATCH",
+      category: "config",
+      message: `Comet verification report receipt path mismatch for ${change}`,
+      path: reportPath
+    });
+  }
+  if (receipt.targetTests.length !== 0) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_RECEIPT_INVALID",
+      category: "config",
+      message: `Archive check requires an empty targetTests list for ${change}`,
+      path: reportPath
+    });
+  }
 }
 
 async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {

@@ -402,6 +402,12 @@ export function designDeclaresPlaywrightCreation(
     design.targetTests.some((target) => target.operation === "create");
 }
 
+export function getRunnablePlaywrightTargets(
+  targets: PlaywrightTargetTestRecord[]
+): PlaywrightTargetTestRecord[] {
+  return targets.filter((target) => target.operation !== "retire");
+}
+
 export function extractPathsFromStructuredBullets(values: string[]): string[] {
   return extractStructuredEntries(values)
     .map((entry) => entry.path ?? "")

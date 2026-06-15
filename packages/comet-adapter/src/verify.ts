@@ -22,6 +22,7 @@ import {
   extractPlaywrightTargetTestsFromDesign,
   extractScenarioIdsFromDesign,
   ensureChangeRoot,
+  getRunnablePlaywrightTargets,
   readHarnessImpact,
   readPlaywrightHarnessDesign,
   readPlaywrightHarnessImpact
@@ -205,7 +206,7 @@ async function verifyPlaywrightCometChange(
       message: `Maintain mode cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`
     });
   }
-  const runnableTargets = targetTests.filter((target) => target.operation !== "retire");
+  const runnableTargets = getRunnablePlaywrightTargets(targetTests);
   const selectedScenarios = runnableTargets.map((target) => target.path);
   const { configHash, assetHash, gitTreeHash } = await buildVerificationFingerprintForMode(
     projectRoot,

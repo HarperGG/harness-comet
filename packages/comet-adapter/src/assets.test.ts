@@ -69,6 +69,48 @@ Upstream text.
     expect(patchIndex).toBeLessThan(anchorIndex);
   });
 
+  it.each([
+    "## Completion Criteria",
+    "## Before finishing",
+    "## Final checks",
+    "## Exit Criteria",
+    "## Completion",
+    "## Final Checklist",
+    "## Done"
+  ])("supports anchor %s", (anchor) => {
+    const current = `# comet-open
+
+Upstream text.
+
+${anchor}
+
+- Done
+`;
+
+    const next = applyManagedPatch("comet-open/SKILL.md", current);
+    const patchIndex = next.indexOf("<!-- harness-comet:start phase=open version=2 -->");
+    const anchorIndex = next.indexOf(anchor);
+    expect(patchIndex).toBeGreaterThan(-1);
+    expect(anchorIndex).toBeGreaterThan(-1);
+    expect(patchIndex).toBeLessThan(anchorIndex);
+  });
+
+  it("does not match partial completion headings", () => {
+    const current = `# comet-open
+
+Upstream text.
+
+## Completion Notes
+
+- Similar but unsupported
+`;
+
+    const next = applyManagedPatch("comet-open/SKILL.md", current);
+    expect(next.indexOf("<!-- harness-comet:start phase=open version=2 -->")).toBeGreaterThan(
+      next.indexOf("## Completion Notes")
+    );
+  });
+
   it("appends when no supported anchor exists", () => {
     const current = `# comet-build
 

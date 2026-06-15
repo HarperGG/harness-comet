@@ -361,6 +361,52 @@ describe("comet archive-check integration", () => {
     expect(result.stderr).toContain("Archive check fingerprint mismatch");
   });
 
+  it("fails for playwright none receipts when the verify report is deleted", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-none-report-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    await writeFile(
+      path.join(root, "docs", "superpowers", "reports", "2026-06-15-demo-change-harness.md"),
+      "",
+      "utf8"
+    );
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("Harness Playwright Verification section");
+  });
+
+  it("fails for playwright none receipts when the impact action changes", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-none-action-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "verify-existing");
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("Archive check fingerprint mismatch");
+  });
+
   it("ignores retired playwright targets by operation instead of filename suffix", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
     const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-retire-"));

@@ -622,7 +622,8 @@ function findSupportedAnchorIndex(content: string): number {
     if (/^\s*```/.test(line)) {
       insideFence = !insideFence;
     }
-    if (!insideFence && anchors.some((anchor) => line.trimStart().startsWith(anchor))) {
+    const trimmed = line.trim();
+    if (!insideFence && anchors.includes(trimmed)) {
       return offset;
     }
     offset += line.length + 1;
