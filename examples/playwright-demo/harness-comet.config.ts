@@ -1,5 +1,6 @@
 export default {
   schemaVersion: 1,
+  mode: "runtime",
   paths: {
     scenarios: "harness/scenarios",
     fixtures: "harness/fixtures",
@@ -7,9 +8,9 @@ export default {
     oracles: "harness/oracles"
   },
   adapter: {
-    default: "memory",
+    default: "playwright",
     entries: {
-      memory: "@harness-comet/adapter-memory"
+      playwright: "@harness-comet/adapter-playwright"
     }
   },
   runtime: {

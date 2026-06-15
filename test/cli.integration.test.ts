@@ -10,7 +10,17 @@ const cli = ["tsx", bin];
 describe("Part A CLI integration", () => {
   it("initializes, validates, lists, runs, and emits JSON", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-it-"));
-    await execa("pnpm", [...cli, "--root", root, "init", "--adapter", "memory", "--yes"]);
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "runtime",
+      "--adapter",
+      "memory",
+      "--yes"
+    ]);
     await execa("pnpm", [...cli, "--root", root, "validate"]);
     const list = await execa("pnpm", [...cli, "--root", root, "scenario", "list"]);
     expect(list.stdout).toContain("example-smoke");
@@ -30,7 +40,17 @@ describe("Part A CLI integration", () => {
 
   it("returns exit code 1 for blocking oracle failures", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-it-fail-"));
-    await execa("pnpm", [...cli, "--root", root, "init", "--adapter", "memory", "--yes"]);
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "runtime",
+      "--adapter",
+      "memory",
+      "--yes"
+    ]);
     const scenarioPath = path.join(root, "harness/scenarios/example-smoke.scenario.yaml");
     const scenario = await readFile(scenarioPath, "utf8");
     await import("node:fs/promises").then(({ writeFile }) =>
@@ -52,7 +72,17 @@ describe("Part A CLI integration", () => {
 
   it("reports missing Playwright browser installation in doctor output", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-it-doctor-"));
-    await execa("pnpm", [...cli, "--root", root, "init", "--adapter", "playwright", "--yes"]);
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "runtime",
+      "--adapter",
+      "playwright",
+      "--yes"
+    ]);
     const result = await execa("pnpm", [...cli, "--root", root, "doctor"]);
     expect(result.stdout).toContain("playwright-browser:chromium");
   });

@@ -3,6 +3,12 @@ id: example-smoke
 title: Example smoke
 adapter: playwright
 tags: [smoke]
+business:
+  component: example-page
+  capability: render-static-message
+  behavior: show-hello-harness
+  contract: example-page-static-message
+  status: active
 fixtureRefs: [example-empty]
 steps:
   - action: page.goto

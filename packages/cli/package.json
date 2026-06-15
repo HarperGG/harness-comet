@@ -18,6 +18,7 @@
   "dependencies": {
     "@harness-comet/adapter-memory": "workspace:*",
     "@harness-comet/adapter-playwright": "workspace:*",
+    "@harness-comet/comet-adapter": "workspace:*",
     "@harness-comet/core": "workspace:*",
     "@harness-comet/schema": "workspace:*",
     "commander": "^14.0.2",

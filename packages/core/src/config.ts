@@ -98,7 +98,7 @@ export async function loadHarnessConfig(
 
 async function firstExistingConfig(projectRoot: string): Promise<string | undefined> {
   const fs = await import("node:fs/promises");
-  for (const name of ["harness.config.ts", "harness.config.mts"]) {
+  for (const name of ["harness-comet.config.ts", "harness-comet.config.mts"]) {
     const full = path.join(projectRoot, name);
     try {
       await fs.access(full);

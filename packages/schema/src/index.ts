@@ -20,6 +20,21 @@ export const IdSchema = z
   .max(80)
   .regex(/^[a-z0-9-]+$/, "IDs must use lowercase letters, numbers, and dashes");
 
+export const ScenarioBusinessV1Schema = z.object({
+  component: z.string().min(1),
+  capability: z.string().min(1),
+  behavior: z.string().min(1),
+  contract: IdSchema.optional(),
+  status: z.enum(["active", "deprecated"]).optional(),
+  supersedes: z.array(IdSchema).optional()
+});
+
+export const FixtureBusinessV1Schema = z.object({
+  purpose: z.string().min(1),
+  scope: z.enum(["shared", "scenario"]),
+  consumers: z.array(z.string().min(1)).optional()
+});
+
 export const ScenarioStepV1Schema = z.object({
   id: IdSchema.optional(),
   action: z.string().min(1),
@@ -48,6 +63,7 @@ export const ScenarioV1Schema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   tags: z.array(z.string().min(1)).optional(),
+  business: ScenarioBusinessV1Schema.optional(),
   fixtureRefs: z.array(IdSchema).optional(),
   adapter: z.string().min(1).optional(),
   timeoutMs: z.number().int().positive().optional(),
@@ -60,6 +76,7 @@ export const FixtureMetadataV1Schema = z
     schemaVersion: z.literal(1),
     id: IdSchema,
     description: z.string().optional(),
+    business: FixtureBusinessV1Schema.optional(),
     dataFile: z.string().min(1).optional(),
     inline: JsonValueSchema.optional(),
     source: z.enum(["synthetic", "test", "redacted-production"]).optional(),
@@ -117,6 +134,51 @@ export const HarnessConfigV1Schema = z.object({
     .optional()
 });
 
+export const HarnessProjectModeSchema = z.enum(["runtime", "playwright"]);
+export const ImpactModeSchema = z.enum(["full", "maintain", "off"]);
+export const ImpactDecisionSchema = z.enum([
+  "reuse",
+  "update",
+  "extend",
+  "create",
+  "deprecate",
+  "none"
+]);
+
+export const RuntimeModeConfigV1Schema = HarnessConfigV1Schema.extend({
+  mode: z.literal("runtime")
+});
+
+export const PlaywrightModeConfigV1Schema = z
+  .object({
+    schemaVersion: z.literal(1).optional(),
+    mode: z.literal("playwright"),
+    playwright: z.object({
+      configFile: z.string().min(1).default("playwright.config.ts"),
+      testDir: z.string().min(1).default("tests"),
+      testMatch: z.array(z.string().min(1)).default(["**/*.spec.ts"])
+    }),
+    docs: z
+      .object({
+        testingDir: z.string().min(1).default("docs/testing")
+      })
+      .optional(),
+    impact: z
+      .object({
+        defaultMode: ImpactModeSchema.default("maintain"),
+        requireOpenImpact: z.boolean().default(true),
+        requireDesignDecision: z.boolean().default(true),
+        requireVerifyEvidence: z.boolean().default(true)
+      })
+      .optional()
+  })
+  .strict();
+
+export const HarnessCometConfigV1Schema = z.union([
+  RuntimeModeConfigV1Schema,
+  PlaywrightModeConfigV1Schema
+]);
+
 export const DifferenceSchema = z.object({
   path: z.string(),
   type: z.enum(["missing", "unexpected", "value-mismatch", "type-mismatch", "schema-mismatch"]),
@@ -143,11 +205,19 @@ export const RunResultV1Schema = z.object({
 });
 
 export type Difference = z.infer<typeof DifferenceSchema>;
+export type ScenarioBusinessV1 = z.infer<typeof ScenarioBusinessV1Schema>;
+export type FixtureBusinessV1 = z.infer<typeof FixtureBusinessV1Schema>;
 export type ScenarioStepV1 = z.infer<typeof ScenarioStepV1Schema>;
 export type ScenarioAssertionV1 = z.infer<typeof ScenarioAssertionV1Schema>;
 export type ScenarioV1 = z.infer<typeof ScenarioV1Schema>;
 export type FixtureMetadataV1 = z.infer<typeof FixtureMetadataV1Schema>;
 export type HarnessConfigV1 = z.infer<typeof HarnessConfigV1Schema>;
+export type HarnessProjectMode = z.infer<typeof HarnessProjectModeSchema>;
+export type ImpactMode = z.infer<typeof ImpactModeSchema>;
+export type ImpactDecision = z.infer<typeof ImpactDecisionSchema>;
+export type RuntimeModeConfigV1 = z.infer<typeof RuntimeModeConfigV1Schema>;
+export type PlaywrightModeConfigV1 = z.infer<typeof PlaywrightModeConfigV1Schema>;
+export type HarnessCometConfigV1 = z.infer<typeof HarnessCometConfigV1Schema>;
 
 export interface HarnessErrorShape {
   code: string;

@@ -14,11 +14,13 @@ describe("cli init", () => {
       "--root",
       root,
       "init",
+      "--mode",
+      "runtime",
       "--adapter",
       "memory",
       "--yes"
     ]);
-    await expect(readFile(path.join(root, "harness.config.ts"), "utf8")).resolves.toContain(
+    await expect(readFile(path.join(root, "harness-comet.config.ts"), "utf8")).resolves.toContain(
       "@harness-comet/adapter-memory"
     );
     await expect(

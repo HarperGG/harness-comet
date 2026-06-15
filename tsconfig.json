@@ -6,6 +6,8 @@
     { "path": "./packages/core" },
     { "path": "./packages/adapter-memory" },
     { "path": "./packages/adapter-playwright" },
+    { "path": "./packages/playwright" },
+    { "path": "./packages/comet-adapter" },
     { "path": "./packages/cli" }
   ]
 }

@@ -5,6 +5,11 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "references": [{ "path": "../schema" }, { "path": "../sdk" }, { "path": "../core" }],
+  "references": [
+    { "path": "../schema" },
+    { "path": "../sdk" },
+    { "path": "../core" },
+    { "path": "../comet-adapter" }
+  ],
   "include": ["src/**/*.ts"]
 }

@@ -1,0 +1,633 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import {
+  discoverHarnessAssets,
+  discoverPlaywrightHarnessAssets,
+  loadHarnessCometConfig,
+  loadHarnessConfig,
+  validateHarnessProject,
+  HarnessError
+} from "@harness-comet/core";
+import {
+  designDeclaresPlaywrightCreation,
+  ensureChangeRoot,
+  extractScenarioIdsFromDesign,
+  parseAssetDecisionTable,
+  readHarnessImpact,
+  readPlaywrightHarnessDesign,
+  readPlaywrightHarnessImpact,
+  resolveDesignDocPath,
+  extractPathsFromStructuredBullets
+} from "./change.js";
+import {
+  classifyPlaywrightAssetPath,
+  isDecisionAllowedForMode
+} from "./playwright-impact-policy.js";
+import { resolveHarnessCometProjectMode } from "./project-mode.js";
+
+export interface CometHookReport {
+  hook: "open" | "design" | "build";
+  change: string;
+  status: "passed";
+}
+
+export async function runCometOpenHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const mode = await resolveHarnessCometProjectMode(projectRoot);
+  if (mode === "playwright") {
+    return runCometPlaywrightOpenHook(projectRoot, change);
+  }
+  const changeRoot = await ensureChangeRoot(projectRoot, change);
+  const tasksPath = path.join(changeRoot, "tasks.md");
+  const tasks = await readRequiredFile(tasksPath, "COMET_OPEN_TASKS_MISSING", "Open tasks doc not found");
+  const { path: designPath, impact } = await readHarnessImpact(projectRoot, change);
+
+  if (!impact.reason) {
+    throw new HarnessError({
+      code: "COMET_OPEN_REASON_MISSING",
+      category: "config",
+      message: `Harness Impact reason is required for ${change}`,
+      path: designPath
+    });
+  }
+
+  if (impact.mode === "full" || impact.mode === "maintain") {
+    if (impact.affectedCapabilities.length === 0) {
+      throw new HarnessError({
+        code: "COMET_OPEN_CAPABILITIES_MISSING",
+        category: "config",
+        message: `Harness Impact must declare affected capabilities for ${change}`,
+        path: designPath
+      });
+    }
+    if (impact.existingAssetCandidates.length === 0) {
+      throw new HarnessError({
+        code: "COMET_OPEN_CANDIDATES_MISSING",
+        category: "config",
+        message: `Harness Impact must declare existing asset candidates for ${change}`,
+        path: designPath
+      });
+    }
+    if (impact.assetDecisions.length === 0) {
+      throw new HarnessError({
+        code: "COMET_OPEN_DECISIONS_MISSING",
+        category: "config",
+        message: `Harness Impact must declare asset decisions for ${change}`,
+        path: designPath
+      });
+    }
+    if (!/harness/i.test(tasks)) {
+      throw new HarnessError({
+        code: "COMET_OPEN_TASKS_INVALID",
+        category: "config",
+        message: `Harness tasks are required in tasks.md for ${change}`,
+        path: tasksPath
+      });
+    }
+  }
+
+  if (impact.mode === "maintain" && containsCreateDecision(impact.assetDecisions)) {
+    throw new HarnessError({
+      code: "COMET_OPEN_MAINTAIN_CREATE_INVALID",
+      category: "config",
+      message: `Harness Impact mode maintain cannot declare create decisions for ${change}`,
+      path: designPath
+    });
+  }
+  if (impact.mode === "off" && (await projectHasHarnessAssets(projectRoot))) {
+    throw new HarnessError({
+      code: "COMET_OPEN_OFF_INVALID",
+      category: "config",
+      message: `Harness Impact mode off is not allowed for an onboarded Harness project: ${change}`,
+      path: designPath
+    });
+  }
+
+  return { hook: "open", change, status: "passed" };
+}
+
+export async function runCometDesignHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const mode = await resolveHarnessCometProjectMode(projectRoot);
+  if (mode === "playwright") {
+    return runCometPlaywrightDesignHook(projectRoot, change);
+  }
+  const designPath = await resolveDesignDocPath(projectRoot, change);
+  const design = await readRequiredFile(
+    designPath,
+    "COMET_DESIGN_DOC_MISSING",
+    "Design hook design doc not found"
+  );
+  const { impact } = await readHarnessImpact(projectRoot, change);
+  if (impact.mode === "off") {
+    return { hook: "design", change, status: "passed" };
+  }
+
+  const harnessDesign = extractSection(design, "Harness Design");
+  const impactModeSection = requireNonEmptySubsection(harnessDesign, "Impact Mode", designPath, change);
+  const designMode = extractBulletValue(impactModeSection, "Mode");
+  if (designMode !== impact.mode) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_MODE_MISMATCH",
+      category: "config",
+      message: `Harness Design mode must match Harness Impact mode for ${change}`,
+      path: designPath
+    });
+  }
+
+  const decisionTable = requireNonEmptySubsection(harnessDesign, "Asset Decision Table", designPath, change);
+  const decisionRows = parseAssetDecisionTable(decisionTable);
+  if (decisionRows.length === 0) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_DECISION_TABLE_INVALID",
+      category: "config",
+      message: `Harness Design Asset Decision Table must declare at least one row for ${change}`,
+      path: designPath
+    });
+  }
+
+  for (const row of decisionRows) {
+    if (!ALLOWED_DECISIONS.has(row.decision)) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_DECISION_INVALID",
+        category: "config",
+        message: `Unsupported Harness asset decision: ${row.decision} for ${change}`,
+        path: designPath
+      });
+    }
+    if (impact.mode === "maintain" && row.decision === "create") {
+      throw new HarnessError({
+        code: "COMET_DESIGN_MAINTAIN_CREATE_INVALID",
+        category: "config",
+        message: `Harness Design mode maintain cannot use create decisions for ${change}`,
+        path: designPath
+      });
+    }
+    validateDecisionEvidence(row, designPath, change);
+  }
+
+  requireNonEmptySubsection(harnessDesign, "Scenario Decision", designPath, change);
+  const fixtureDecisionSection = requireNonEmptySubsection(harnessDesign, "Fixture Decision", designPath, change);
+  requireNonEmptySubsection(harnessDesign, "Adapter Decision", designPath, change);
+  requireNonEmptySubsection(harnessDesign, "Oracle Decision", designPath, change);
+
+  await validateSharedFixtureConsumerNotes(projectRoot, decisionRows, fixtureDecisionSection, designPath, change);
+  return { hook: "design", change, status: "passed" };
+}
+
+export async function runCometBuildHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const mode = await resolveHarnessCometProjectMode(projectRoot);
+  if (mode === "playwright") {
+    return runCometPlaywrightBuildHook(projectRoot, change);
+  }
+  const config = await loadHarnessConfig({ root: projectRoot });
+  const designPath = await resolveDesignDocPath(projectRoot, change);
+  const design = await readRequiredFile(
+    designPath,
+    "COMET_DESIGN_DOC_MISSING",
+    "Build hook design doc not found"
+  );
+  const harnessDesign = extractSection(design, "Harness Design");
+  const fixtureDecisionSection = requireNonEmptySubsection(harnessDesign, "Fixture Decision", designPath, change);
+  const decisionTable = requireNonEmptySubsection(harnessDesign, "Asset Decision Table", designPath, change);
+  const decisionRows = parseAssetDecisionTable(decisionTable);
+  const selectedScenarioIds = await extractScenarioIdsFromDesign(projectRoot, change);
+  const validation = await validateHarnessProject(config, { scenarioIds: selectedScenarioIds });
+  if (!validation.ok) {
+    throw validation.errors[0];
+  }
+
+  const assets = await discoverHarnessAssets(config);
+  const discoveredIds = new Set(assets.scenarios.map((asset) => asset.scenario.id));
+  for (const id of selectedScenarioIds) {
+    if (!discoveredIds.has(id)) {
+      throw new HarnessError({
+        code: "COMET_BUILD_SCENARIO_MISSING",
+        category: "selection",
+        message: `Design-declared scenario not found: ${id}`
+      });
+    }
+  }
+  await validateSharedFixtureConsumerNotes(projectRoot, decisionRows, fixtureDecisionSection, designPath, change);
+
+  const planRoot = path.join(projectRoot, "docs", "superpowers", "plans");
+  const planContent = await readAllMarkdown(planRoot);
+  for (const requiredLine of [
+    "Scenario implementation",
+    "Fixture implementation",
+    "Adapter Action implementation",
+    "Inspector implementation",
+    "Oracle implementation",
+    "Harness validation",
+    "Harness scenario execution"
+  ]) {
+    if (!planContent.includes(requiredLine)) {
+      throw new HarnessError({
+        code: "COMET_BUILD_PLAN_INVALID",
+        category: "config",
+        message: `Build hook requires plan coverage for: ${requiredLine}`
+      });
+    }
+  }
+
+  return { hook: "build", change, status: "passed" };
+}
+
+async function runCometPlaywrightOpenHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const changeRoot = await ensureChangeRoot(projectRoot, change);
+  const tasksPath = path.join(changeRoot, "tasks.md");
+  const tasks = await readRequiredFile(tasksPath, "COMET_OPEN_TASKS_MISSING", "Open tasks doc not found");
+  const { path: designPath, impact } = await readPlaywrightHarnessImpact(projectRoot, change);
+
+  if (!impact.reason) {
+    throw new HarnessError({
+      code: "COMET_OPEN_REASON_MISSING",
+      category: "config",
+      message: `Harness Playwright Impact reason is required for ${change}`,
+      path: designPath
+    });
+  }
+  if (impact.mode === "full" || impact.mode === "maintain") {
+    if (impact.affectedCapabilities.length === 0) {
+      throw new HarnessError({
+        code: "COMET_OPEN_CAPABILITIES_MISSING",
+        category: "config",
+        message: `Harness Playwright Impact must declare affected capabilities for ${change}`,
+        path: designPath
+      });
+    }
+    if (impact.existingPlaywrightAssets.length === 0) {
+      throw new HarnessError({
+        code: "COMET_OPEN_CANDIDATES_MISSING",
+        category: "config",
+        message: `Harness Playwright Impact must declare existing Playwright assets for ${change}`,
+        path: designPath
+      });
+    }
+    if (!impact.preliminaryDecision) {
+      throw new HarnessError({
+        code: "COMET_OPEN_DECISIONS_MISSING",
+        category: "config",
+        message: `Harness Playwright Impact must declare a preliminary decision for ${change}`,
+        path: designPath
+      });
+    }
+    if (!/harness/i.test(tasks)) {
+      throw new HarnessError({
+        code: "COMET_OPEN_TASKS_INVALID",
+        category: "config",
+        message: `Harness tasks are required in tasks.md for ${change}`,
+        path: tasksPath
+      });
+    }
+  }
+  if (impact.mode === "off" && (await projectHasHarnessAssets(projectRoot))) {
+    throw new HarnessError({
+      code: "COMET_OPEN_OFF_INVALID",
+      category: "config",
+      message: `Harness Playwright Impact mode off is not allowed for an onboarded Harness project: ${change}`,
+      path: designPath
+    });
+  }
+  return { hook: "open", change, status: "passed" };
+}
+
+async function runCometPlaywrightDesignHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const { path: designPath, impact } = await readPlaywrightHarnessImpact(projectRoot, change);
+  const { design } = await readPlaywrightHarnessDesign(projectRoot, change);
+  if (design.mode !== impact.mode) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_MODE_MISMATCH",
+      category: "config",
+      message: `Harness Playwright Design mode must match Harness Playwright Impact mode for ${change}`,
+      path: designPath
+    });
+  }
+  if (!design.decision) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_DECISION_INVALID",
+      category: "config",
+      message: `Harness Playwright Design decision is required for ${change}`,
+      path: designPath
+    });
+  }
+  if (design.mode === "maintain" && designDeclaresPlaywrightCreation(design)) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
+      category: "config",
+      message: `Harness Playwright Design mode maintain cannot create new test assets for ${change}`,
+      path: designPath
+    });
+  }
+  if (impact.mode === "off" && design.decision !== "none") {
+    throw new HarnessError({
+      code: "COMET_DESIGN_OFF_INVALID",
+      category: "config",
+      message: `Harness Playwright Design must use decision none when mode is off for ${change}`,
+      path: designPath
+    });
+  }
+  if (!isDecisionAllowedForMode(design.mode, design.decision)) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_PLAYWRIGHT_DECISION_INVALID",
+      category: "config",
+      message: `Harness Playwright Design decision ${design.decision} is not allowed in mode ${design.mode} for ${change}`,
+      path: designPath
+    });
+  }
+  if (design.targetTests.length === 0 && impact.mode !== "off") {
+    throw new HarnessError({
+      code: "COMET_DESIGN_FIELD_MISSING",
+      category: "config",
+      message: `Harness Playwright Design target tests are required for ${change}`,
+      path: designPath
+    });
+  }
+  if (design.verificationCommands.length === 0 && impact.mode !== "off") {
+    throw new HarnessError({
+      code: "COMET_DESIGN_FIELD_MISSING",
+      category: "config",
+      message: `Harness Playwright Design verification commands are required for ${change}`,
+      path: designPath
+    });
+  }
+  return { hook: "design", change, status: "passed" };
+}
+
+async function runCometPlaywrightBuildHook(
+  projectRoot: string,
+  change: string
+): Promise<CometHookReport> {
+  const { impact } = await readPlaywrightHarnessImpact(projectRoot, change);
+  const { path: designPath, design } = await readPlaywrightHarnessDesign(projectRoot, change);
+  const project = await loadHarnessCometConfig({ root: projectRoot });
+  if (project.config.mode !== "playwright") {
+    throw new HarnessError({
+      code: "COMET_BUILD_MODE_INVALID",
+      category: "config",
+      message: `Playwright build hook requires mode=playwright for ${change}`,
+      path: designPath
+    });
+  }
+  const assets = await discoverPlaywrightHarnessAssets({
+    root: projectRoot,
+    testDir: project.config.playwright.testDir,
+    testMatch: project.config.playwright.testMatch
+  });
+  const filesByPath = new Map(assets.tests.map((asset) => [normalizePath(asset.path), asset]));
+  for (const target of design.targetTests) {
+    const expected = normalizePath(path.resolve(projectRoot, target.path));
+    const asset = filesByPath.get(expected);
+    if (!asset) {
+      throw new HarnessError({
+        code: "COMET_BUILD_SCENARIO_MISSING",
+        category: "selection",
+        message: `Design-declared Playwright test not found: ${target.path}`,
+        path: designPath
+      });
+    }
+    if (asset.scenarios.length === 0) {
+      throw new HarnessError({
+        code: "COMET_BUILD_METADATA_MISSING",
+        category: "config",
+        message: `Playwright test is missing defineHarnessScenario metadata: ${target.path}`,
+        path: designPath
+      });
+    }
+  }
+  const unauthorizedCreates = await findUnauthorizedPlaywrightCreates(projectRoot, impact, design);
+  if (design.mode === "maintain" && unauthorizedCreates.length > 0) {
+    throw new HarnessError({
+      code: "COMET_BUILD_PLAYWRIGHT_MAINTAIN_CREATE_INVALID",
+      category: "config",
+      message: `Maintain mode cannot create new Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      path: designPath
+    });
+  }
+  if (design.mode === "off" && unauthorizedCreates.length > 0) {
+    throw new HarnessError({
+      code: "COMET_BUILD_PLAYWRIGHT_OFF_INVALID",
+      category: "config",
+      message: `Off mode cannot create Playwright assets: ${unauthorizedCreates.join(", ")}`,
+      path: designPath
+    });
+  }
+  return { hook: "build", change, status: "passed" };
+}
+
+export async function findUnauthorizedPlaywrightCreates(
+  projectRoot: string,
+  impact: { existingPlaywrightAssets: string[]; mode: "full" | "maintain" | "off" },
+  design: {
+    targetTests: Array<{ path: string; action: string }>;
+    relatedFiles: Array<{ path: string }>;
+  }
+): Promise<string[]> {
+  const existing = new Set(
+    extractPathsFromStructuredBullets(impact.existingPlaywrightAssets).map(normalizeRelativePath)
+  );
+  const implicated = [
+    ...design.targetTests.map((target) => ({ path: target.path, action: target.action })),
+    ...design.relatedFiles.map((file) => ({ path: file.path, action: "" }))
+  ];
+
+  return implicated
+    .map((entry) => ({
+      relativePath: normalizeRelativePath(entry.path),
+      action: entry.action,
+      classification: classifyPlaywrightAssetPath(normalizeRelativePath(entry.path))
+    }))
+    .filter((entry) => entry.classification.managed)
+    .filter((entry) => entry.classification.kind !== "config")
+    .filter((entry) => !existing.has(entry.relativePath))
+    .map((entry) => entry.relativePath);
+}
+
+async function readRequiredFile(filePath: string, code: string, message: string): Promise<string> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    throw new HarnessError({
+      code,
+      category: "config",
+      message,
+      path: filePath
+    });
+  }
+}
+
+function extractSection(content: string, heading: string): string {
+  const lines = content.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start === -1) {
+    throw new HarnessError({
+      code: "COMET_DOC_SECTION_MISSING",
+      category: "config",
+      message: `Missing section: ${heading}`
+    });
+  }
+  const collected: string[] = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    if (lines[index].startsWith("## ")) break;
+    collected.push(lines[index]);
+  }
+  return collected.join("\n");
+}
+
+function extractBulletValue(section: string, label: string): string {
+  for (const line of section.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const prefix = `- ${label}:`;
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length).trim();
+    }
+  }
+  return "";
+}
+
+function requireNonEmptySubsection(
+  section: string,
+  heading: string,
+  filePath: string,
+  change: string
+): string {
+  const lines = section.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `### ${heading}`);
+  const collected: string[] = [];
+  if (start !== -1) {
+    for (let index = start + 1; index < lines.length; index += 1) {
+      if (lines[index].startsWith("### ")) break;
+      collected.push(lines[index]);
+    }
+  }
+  const block = collected.join("\n").trim();
+  if (!block) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_FIELD_MISSING",
+      category: "config",
+      message: `Harness Design field is required: ${heading} for ${change}`,
+      path: filePath
+    });
+  }
+  return block;
+}
+
+const ALLOWED_DECISIONS = new Set(["reuse", "update", "extend", "create", "deprecate", "none"]);
+const GENERIC_EVIDENCE = new Set(["", "none", "impact-analyze", "pending", "pending-review", "review"]);
+
+function containsCreateDecision(values: string[]): boolean {
+  return values.some((value) => /\bcreate\b/i.test(value));
+}
+
+function normalizeRelativePath(filePath: string): string {
+  return normalizePath(filePath).replace(/^\.\//, "");
+}
+
+function validateDecisionEvidence(
+  row: ReturnType<typeof parseAssetDecisionTable>[number],
+  filePath: string,
+  change: string
+): void {
+  const normalizedEvidence = row.evidence.trim().toLowerCase().replace(/\s+/g, "-");
+  const contractChanged = row.contractChange.trim().toLowerCase() === "yes";
+  if (contractChanged && GENERIC_EVIDENCE.has(normalizedEvidence)) {
+    throw new HarnessError({
+      code: "COMET_DESIGN_EVIDENCE_MISSING",
+      category: "config",
+      message: `Harness Design requires concrete evidence for contract-changing decision ${row.assetType}:${row.assetId} in ${change}`,
+      path: filePath
+    });
+  }
+}
+
+async function readAllMarkdown(root: string): Promise<string> {
+  let result = "";
+  try {
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        result += await readAllMarkdown(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        result += `\n${await fs.readFile(fullPath, "utf8")}`;
+      }
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return result;
+}
+
+async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {
+  try {
+    const project = await loadHarnessCometConfig({ root: projectRoot });
+    if (project.config.mode === "playwright") {
+      const assets = await discoverPlaywrightHarnessAssets({
+        root: projectRoot,
+        testDir: project.config.playwright.testDir,
+        testMatch: project.config.playwright.testMatch
+      });
+      return assets.tests.some((asset) => asset.scenarios.length > 0);
+    }
+    const config = await loadHarnessConfig({ root: projectRoot });
+    const assets = await discoverHarnessAssets(config);
+    return assets.scenarios.length + assets.fixtures.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function normalizePath(value: string): string {
+  return value.split(path.sep).join("/");
+}
+
+async function validateSharedFixtureConsumerNotes(
+  projectRoot: string,
+  decisionRows: ReturnType<typeof parseAssetDecisionTable>,
+  fixtureDecisionSection: string,
+  designPath: string,
+  change: string
+): Promise<void> {
+  const fixtureRows = decisionRows.filter(
+    (row) => row.assetType === "fixture" && (row.decision === "update" || row.decision === "extend")
+  );
+  if (fixtureRows.length === 0) return;
+
+  let config;
+  try {
+    config = await loadHarnessConfig({ root: projectRoot });
+  } catch {
+    return;
+  }
+  const assets = await discoverHarnessAssets(config);
+  const fixtureAssets = new Map(assets.fixtures.map((asset) => [asset.fixture.id, asset.fixture]));
+
+  for (const row of fixtureRows) {
+    const fixture = fixtureAssets.get(row.assetId);
+    if (!fixture || fixture.business?.scope !== "shared") continue;
+    const consumers = fixture.business.consumers ?? [];
+    if (consumers.length <= 1) continue;
+    const missing = consumers.filter((consumer) => !fixtureDecisionSection.includes(consumer));
+    if (missing.length > 0) {
+      throw new HarnessError({
+        code: "COMET_DESIGN_FIXTURE_CONSUMERS_MISSING",
+        category: "config",
+        message: `Shared fixture consumer impact must be documented for ${row.assetId}: ${missing.join(", ")} (${change})`,
+        path: designPath
+      });
+    }
+  }
+}

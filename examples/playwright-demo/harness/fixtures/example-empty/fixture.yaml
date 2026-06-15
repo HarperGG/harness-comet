@@ -3,3 +3,8 @@ id: example-empty
 inline: {}
 source: synthetic
 containsSensitiveData: false
+business:
+  purpose: example-page-empty-state
+  scope: shared
+  consumers:
+    - example-page-static-message

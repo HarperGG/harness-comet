@@ -5,12 +5,18 @@ import pc from "picocolors";
 import {
   HarnessError,
   discoverHarnessAssets,
+  loadHarnessCometConfig,
   loadHarnessConfig,
   mapErrorToExitCode,
+  runPlaywrightHarness,
   runHarness,
+  validatePlaywrightHarnessProject,
   validateHarnessProject,
   type DryRunResult
 } from "@harness-comet/core";
+import { registerCometCommands } from "./commands/comet.js";
+import { registerImpactCommands } from "./commands/impact.js";
+import { initHarnessProject, scenarioTemplate } from "./commands/init.js";
 
 interface GlobalOptions {
   root?: string;
@@ -46,10 +52,14 @@ export function buildProgram(): Command {
 
   program
     .command("init")
+    .option("--mode <runtime|playwright>", "project mode", "runtime")
     .option("--adapter <memory|playwright|custom>", "adapter template", "memory")
+    .option("--test-dir <path>", "Playwright test directory", "tests")
+    .option("--skip-install", "write Playwright project files without running dependency install")
+    .option("--skip-browsers", "skip Playwright browser installation")
     .option("--yes", "accept defaults")
     .option("--force", "create missing files even when some exist")
-    .option("--overwrite-config", "overwrite harness.config.ts")
+    .option("--overwrite-config", "overwrite harness-comet.config.ts")
     .action(withErrors(program, async (options) => initCommand(rootOptions(program), options)));
 
   program
@@ -100,13 +110,16 @@ export function buildProgram(): Command {
     .option("--dry-run", "show selected scenarios without execution")
     .action(withErrors(program, async (options) => runCommand(rootOptions(program), options)));
 
-  program
-    .command("comet")
-    .description("Optional Comet integration commands")
-    .action(() => {
-      process.stderr.write("Comet integration is not implemented in Part A\n");
-      process.exitCode = 6;
-    });
+  registerCometCommands(
+    program,
+    (action) => withErrors(program, action),
+    () => rootOptions(program)
+  );
+  registerImpactCommands(
+    program,
+    (action) => withErrors(program, action),
+    () => rootOptions(program)
+  );
 
   return program;
 }
@@ -144,122 +157,57 @@ function withErrors(program: Command, action: (...args: any[]) => Promise<void>)
 
 async function initCommand(
   global: GlobalOptions,
-  options: { adapter: string; overwriteConfig?: boolean }
+  options: {
+    mode: "runtime" | "playwright";
+    adapter: string;
+    testDir?: string;
+    skipInstall?: boolean;
+    skipBrowsers?: boolean;
+    overwriteConfig?: boolean;
+  }
 ): Promise<void> {
   const root = path.resolve(global.root ?? process.cwd());
-  await fs.mkdir(path.join(root, "harness", "scenarios"), { recursive: true });
-  await fs.mkdir(path.join(root, "harness", "fixtures", "example-empty"), { recursive: true });
-  await fs.mkdir(path.join(root, "harness", "adapters"), { recursive: true });
-  await fs.mkdir(path.join(root, "harness", "oracles"), { recursive: true });
-
-  await writeFileSafe(
-    path.join(root, "harness.config.ts"),
-    configTemplate(options.adapter),
-    Boolean(options.overwriteConfig)
-  );
-  await writeFileSafe(
-    path.join(root, "harness", "fixtures", "example-empty", "fixture.yaml"),
-    "schemaVersion: 1\nid: example-empty\ninline: {}\nsource: synthetic\ncontainsSensitiveData: false\n",
-    false
-  );
-  await writeFileSafe(
-    path.join(root, "harness", "scenarios", "example-smoke.scenario.yaml"),
-    scenarioTemplate(options.adapter),
-    false
-  );
+  const result = await initHarnessProject({
+    root,
+    mode: options.mode,
+    adapter: options.adapter,
+    testDir: options.testDir,
+    install: options.skipInstall ? false : true,
+    installBrowsers: options.skipBrowsers ? false : true,
+    overwriteConfig: options.overwriteConfig
+  });
 
   output(
     global,
-    { ok: true, created: ["harness.config.ts", "harness/"] },
+    result,
     "Initialized harness assets"
   );
-}
-
-function configTemplate(adapter: string): string {
-  const defaultAdapter = adapter === "playwright" ? "playwright" : "memory";
-  const entry =
-    defaultAdapter === "playwright"
-      ? "@harness-comet/adapter-playwright"
-      : "@harness-comet/adapter-memory";
-  return `export default {
-  schemaVersion: 1,
-  paths: {
-    scenarios: "harness/scenarios",
-    fixtures: "harness/fixtures",
-    adapters: "harness/adapters",
-    oracles: "harness/oracles"
-  },
-  adapter: {
-    default: "${defaultAdapter}",
-    entries: {
-      ${defaultAdapter}: "${entry}"
-    }
-  },
-  runtime: {
-    scenarioTimeoutMs: 60000,
-    stepTimeoutMs: 15000,
-    assertionTimeoutMs: 10000,
-    workers: 1,
-    failFast: false
-  }
-};
-`;
-}
-
-function scenarioTemplate(adapter: string): string {
-  if (adapter === "playwright") {
-    return `schemaVersion: 1
-id: example-smoke
-title: Example smoke
-adapter: playwright
-tags: [smoke]
-fixtureRefs: [example-empty]
-steps:
-  - action: page.goto
-    input:
-      url: "data:text/html,<title>Harness</title><main data-testid='message'>Hello Harness</main>"
-assertions:
-  - inspect: page.text
-    input:
-      selector: "[data-testid=message]"
-    oracle: value.contains
-    expected: "Hello Harness"
-`;
-  }
-  return `schemaVersion: 1
-id: example-smoke
-title: Example smoke
-adapter: memory
-tags: [smoke]
-fixtureRefs: [example-empty]
-steps:
-  - action: memory.set
-    input:
-      key: message
-      value: Hello Harness
-assertions:
-  - inspect: memory.get
-    input:
-      key: message
-    oracle: value.equals
-    expected: Hello Harness
-`;
-}
-
-async function writeFileSafe(file: string, content: string, overwrite: boolean): Promise<void> {
-  try {
-    if (!overwrite) await fs.access(file);
-  } catch {
-    await fs.writeFile(file, content, "utf8");
-    return;
-  }
-  if (overwrite) await fs.writeFile(file, content, "utf8");
 }
 
 async function validateCommand(
   global: GlobalOptions,
   options: { scenario?: string; staticOnly?: boolean }
 ): Promise<void> {
+  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
+  if (project.config.mode === "playwright") {
+    const result = await validatePlaywrightHarnessProject({
+      root: project.root,
+      playwright: project.config.playwright
+    });
+    if (!result.ok) throw result.errors[0];
+    output(
+      global,
+      {
+        ok: true,
+        mode: "playwright",
+        tests: result.assets.tests.length,
+        scenarios: result.assets.tests.reduce((count, test) => count + test.scenarios.length, 0)
+      },
+      "Playwright harness assets are valid"
+    );
+    return;
+  }
+
   const config = await loadHarnessConfig({ root: global.root, config: global.config });
   const result = await validateHarnessProject(config, {
     staticOnly: options.staticOnly,
@@ -356,8 +304,23 @@ async function scenarioCreateCommand(
 ): Promise<void> {
   const config = await loadHarnessConfig({ root: global.root, config: global.config });
   const file = path.join(config.paths.scenarios, `${id}.scenario.yaml`);
-  await writeFileSafe(file, scenarioTemplate(options.adapter).replace("example-smoke", id), false);
+  await writeScenarioFileSafe(file, scenarioTemplate(options.adapter).replace("example-smoke", id));
   output(global, { ok: true, file }, `Created ${file}`);
+}
+
+async function writeScenarioFileSafe(file: string, content: string): Promise<void> {
+  try {
+    await fs.access(file);
+    throw new HarnessError({
+      code: "SCENARIO_ALREADY_EXISTS",
+      category: "config",
+      message: `Scenario already exists: ${file}`
+    });
+  } catch (error) {
+    if (error instanceof HarnessError) throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  await fs.writeFile(file, content, "utf8");
 }
 
 async function scenarioExplainCommand(global: GlobalOptions, id: string): Promise<void> {
@@ -394,9 +357,31 @@ async function runCommand(
     workers?: number;
     timeout?: number;
     failFast?: boolean;
+    headed?: boolean;
     dryRun?: boolean;
   }
 ): Promise<void> {
+  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
+  if (project.config.mode === "playwright") {
+    if (options.scenario.length) {
+      throw new HarnessError({
+        code: "PLAYWRIGHT_RUNTIME_FLAG",
+        category: "selection",
+        message:
+          "--scenario is only supported in runtime mode; pass Playwright file filters after -- in playwright mode"
+      });
+    }
+    const args: string[] = [];
+    if (options.headed) args.push("--headed");
+    const code = await runPlaywrightHarness({
+      root: project.root,
+      configFile: project.config.playwright.configFile,
+      args
+    });
+    process.exitCode = code;
+    return;
+  }
+
   const result = await runHarness({
     root: global.root,
     config: global.config,
