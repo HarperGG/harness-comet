@@ -26,6 +26,10 @@ import {
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
 import type { CometArchiveCheckReport } from "./types.js";
 
+function resolveReceiptReportPath(projectRoot: string, reportPath: string): string {
+  return path.isAbsolute(reportPath) ? reportPath : path.join(projectRoot, reportPath);
+}
+
 export async function archiveCheckCometChange(
   projectRoot: string,
   change: string
@@ -178,7 +182,7 @@ async function archiveCheckPlaywrightCometChange(
         message: `Archive check fingerprint mismatch for ${change}`
       });
     }
-    const reportPath = buildVerificationReportPath(projectRoot, change);
+    const reportPath = resolveReceiptReportPath(projectRoot, receipt.reportPath);
     const report = await fs.readFile(reportPath, "utf8");
     validatePlaywrightNoneArchiveReport(report, receipt, change, reportPath);
     return {
@@ -209,7 +213,7 @@ async function archiveCheckPlaywrightCometChange(
       message: `Archive check fingerprint mismatch for ${change}`
     });
   }
-  const reportPath = buildVerificationReportPath(projectRoot, change);
+  const reportPath = resolveReceiptReportPath(projectRoot, receipt.reportPath);
   const report = await fs.readFile(reportPath, "utf8");
   if (!report.includes("## Harness Playwright Verification")) {
     throw new HarnessError({

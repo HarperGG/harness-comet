@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -129,6 +129,28 @@ async function updatePlaywrightReceipt(
   );
   const receipt = JSON.parse(await readFile(receiptPath, "utf8")) as Record<string, unknown>;
   await writeFile(receiptPath, `${JSON.stringify(mutate(receipt), null, 2)}\n`, "utf8");
+}
+
+async function readPlaywrightReceipt(root: string, change: string): Promise<Record<string, unknown>> {
+  const receiptPath = path.join(
+    root,
+    "openspec",
+    "changes",
+    change,
+    ".comet",
+    "harness",
+    "verify-receipt.json"
+  );
+  return JSON.parse(await readFile(receiptPath, "utf8")) as Record<string, unknown>;
+}
+
+async function resolvePlaywrightReportPath(root: string, change: string): Promise<string> {
+  const receipt = await readPlaywrightReceipt(root, change);
+  const reportPath = receipt.reportPath;
+  if (typeof reportPath !== "string" || reportPath.length === 0) {
+    throw new Error(`Missing reportPath in Playwright receipt for ${change}`);
+  }
+  return path.isAbsolute(reportPath) ? reportPath : path.join(root, reportPath);
 }
 
 async function createArchiveReadyChange(root: string, change: string): Promise<void> {
@@ -388,11 +410,14 @@ describe("comet archive-check integration", () => {
     await commitAll(root, "init playwright project");
     await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
 
-    await writeFile(
-      path.join(root, "docs", "superpowers", "reports", "2026-06-15-demo-change-harness.md"),
-      "",
-      "utf8"
+    const reportPath = path.join(
+      root,
+      "docs",
+      "superpowers",
+      "reports",
+      `${new Date().toISOString().slice(0, 10)}-demo-change-harness.md`
     );
+    await writeFile(reportPath, "", "utf8");
 
     const result = await execa(
       "pnpm",
@@ -402,6 +427,35 @@ describe("comet archive-check integration", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("Harness Playwright Verification section");
+  });
+
+  it("uses the playwright receipt reportPath during archive-check", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-archive-check-playwright-report-path-"));
+    await initGitRepo(root);
+    await execa("pnpm", [...cli, "--root", root, "init", "--mode", "playwright", "--skip-install", "--skip-browsers", "--yes"]);
+    await createPlaywrightArchiveReadyChange(root, "demo-change", "none");
+    await commitAll(root, "init playwright project");
+    await execa("pnpm", [...cli, "--root", root, "comet", "verify", "--change", "demo-change"]);
+
+    const originalReportPath = await resolvePlaywrightReportPath(root, "demo-change");
+    const receiptReportPath = path.join(root, "docs", "superpowers", "reports", "archived-demo-change-harness.md");
+    const report = await readFile(originalReportPath, "utf8");
+    await rename(originalReportPath, receiptReportPath);
+    await writeFile(receiptReportPath, report, "utf8");
+    await updatePlaywrightReceipt(root, "demo-change", (receipt) => ({
+      ...receipt,
+      reportPath: path.relative(root, receiptReportPath)
+    }));
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "archive-check", "--change", "demo-change"],
+      { reject: false }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("STATUS passed");
   });
 
   it("fails for playwright none receipts when the impact action changes", async () => {
