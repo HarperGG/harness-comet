@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -318,11 +319,19 @@ async function ensurePlaywrightPackageJson(root: string): Promise<void> {
 }
 
 function resolvePlaywrightDependencySpec(): string {
-  const localPackagePath = path.resolve(
+  const packagePath = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
-    "../../../playwright"
+    "../../package.json"
   );
-  return `file:${localPackagePath}`;
+  return readPackageVersionSync(packagePath);
+}
+
+function readPackageVersionSync(packagePath: string): string {
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { version?: unknown };
+  if (typeof packageJson.version !== "string" || packageJson.version.length === 0) {
+    throw new Error(`Unable to read package version from ${packagePath}`);
+  }
+  return packageJson.version;
 }
 
 async function installProjectDependencies(root: string): Promise<boolean> {
@@ -384,7 +393,9 @@ async function loadDetectPackageManager(): Promise<
 }
 
 function sortObject(input: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(Object.entries(input).sort(([left], [right]) => left.localeCompare(right)));
+  return Object.fromEntries(
+    Object.entries(input).sort(([left], [right]) => left.localeCompare(right))
+  );
 }
 
 function normalizePath(value: string): string {

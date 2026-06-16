@@ -2,6 +2,13 @@
   "name": "@harness-comet/core",
   "version": "0.1.0",
   "type": "module",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,6 +22,7 @@
   "dependencies": {
     "@harness-comet/schema": "workspace:*",
     "@harness-comet/sdk": "workspace:*",
+    "execa": "^9.6.0",
     "fast-glob": "^3.3.3",
     "jiti": "^2.6.1",
     "yaml": "^2.8.2",

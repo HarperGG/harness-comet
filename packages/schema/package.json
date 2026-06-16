@@ -2,6 +2,13 @@
   "name": "@harness-comet/schema",
   "version": "0.1.0",
   "type": "module",
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -5,6 +5,14 @@
   "bin": {
     "harness-comet": "./bin/harness-comet.js"
   },
+  "files": [
+    "bin",
+    "dist",
+    "package.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,6 +30,7 @@
     "@harness-comet/core": "workspace:*",
     "@harness-comet/schema": "workspace:*",
     "commander": "^14.0.2",
+    "execa": "^9.6.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

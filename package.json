@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --check .",
     "harness-comet": "node packages/cli/bin/harness-comet.js",
-    "setup:browsers": "pnpm --filter @harness-comet/adapter-playwright exec playwright install chromium"
+    "setup:browsers": "pnpm --filter @harness-comet/adapter-playwright exec playwright install chromium",
+    "pack:dry-run": "pnpm -r --filter './packages/*' exec npm pack --dry-run",
+    "release:check": "pnpm build && pnpm test && pnpm pack:dry-run"
   },
   "devDependencies": {
     "@harness-comet/adapter-memory": "workspace:*",

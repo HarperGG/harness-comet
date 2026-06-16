@@ -27,4 +27,28 @@ describe("cli init", () => {
       readFile(path.join(root, "harness/scenarios/example-smoke.scenario.yaml"), "utf8")
     ).resolves.toContain("memory.set");
   });
+
+  it("writes npm package specs for Playwright mode dependencies", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "harness-cli-playwright-"));
+    const program = buildProgram();
+    await program.parseAsync([
+      "node",
+      "harness-comet",
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "playwright",
+      "--skip-install",
+      "--skip-browsers",
+      "--yes"
+    ]);
+
+    const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(pkg.devDependencies?.["@harness-comet/playwright"]).toBe("0.1.0");
+    expect(pkg.devDependencies?.["@harness-comet/playwright"]).not.toMatch(/^file:/);
+  });
 });
