@@ -185,7 +185,15 @@ pnpm exec harness-comet impact show \
 pnpm exec harness-comet comet doctor
 ```
 
-安装：
+推荐使用交互式安装：
+
+```bash
+pnpm exec harness-comet comet install
+```
+
+安装过程中会提示你选择目标平台、是否初始化 Harness，以及需要写入哪些集成内容。对于人工首次接入，建议保留这些提示，不要默认加 `--yes`。
+
+`--yes` 会直接接受非交互默认值，可能生成或安装更多默认内容，只建议在 CI、自动化脚本，或你已经明确了解默认选择时使用：
 
 ```bash
 pnpm exec harness-comet comet install --yes
@@ -293,6 +301,7 @@ pnpm exec harness-comet impact show --change change-id
 
 # Comet
 pnpm exec harness-comet comet doctor
+pnpm exec harness-comet comet install
 pnpm exec harness-comet comet verify --change change-id
 ```
 
