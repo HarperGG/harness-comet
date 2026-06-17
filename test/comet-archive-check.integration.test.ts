@@ -28,46 +28,6 @@ async function initGitRepo(root: string): Promise<void> {
   await execa("git", ["config", "user.email", "harness@example.com"], { cwd: root });
 }
 
-async function createFakeNpm(root: string): Promise<string> {
-  const binDir = path.join(root, "bin");
-  const script = path.join(binDir, "npm");
-  await mkdir(binDir, { recursive: true });
-  await writeFile(
-    script,
-    `#!/bin/sh
-set -eu
-if [ "$1" = "exec" ] && [ "$2" = "playwright" ]; then
-  mkdir -p "$(dirname "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE")"
-  cat > "$HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE" <<'EOF'
-{
-  "schemaVersion": 1,
-  "generatedAt": "2026-06-16T00:00:00.000Z",
-  "tests": [
-    {
-      "project": "chromium",
-      "file": "tests/example.spec.ts",
-      "title": "Example save flow",
-      "tags": ["@harness"],
-      "annotations": [],
-      "status": "passed",
-      "duration": 5,
-      "retry": 0,
-      "errors": [],
-      "attachments": []
-    }
-  ]
-}
-EOF
-  exit 0
-fi
-exit 1
-`,
-    "utf8"
-  );
-  await chmod(script, 0o755);
-  return binDir;
-}
-
 async function createFakePnpm(root: string): Promise<string> {
   const binDir = path.join(root, "bin-pnpm");
   const script = path.join(binDir, "pnpm");

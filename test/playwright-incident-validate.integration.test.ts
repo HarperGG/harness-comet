@@ -20,15 +20,27 @@ async function createFakeNpm(root: string): Promise<string> {
     script,
     `#!/bin/sh
 if [ "$1" = "exec" ] && [ "$2" = "playwright" ]; then
-  cat > "$HARNESS_COMET_PLAYWRIGHT_LIST_OUTPUT_FILE" <<'EOF'
-[
-  {
-    "file": "tests/example.spec.ts",
-    "title": "Example smoke",
-    "tags": ["@harness"],
-    "annotations": []
-  }
-]
+  cat <<'EOF'
+{
+  "suites": [
+    {
+      "title": "tests/example.spec.ts",
+      "file": "tests/example.spec.ts",
+      "specs": [
+        {
+          "title": "Example smoke",
+          "tags": ["harness"],
+          "tests": [
+            {
+              "projectName": "chromium",
+              "annotations": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
 EOF
   exit 0
 fi

@@ -1,6 +1,14 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 
+const nodeGlobals = {
+  process: "readonly",
+  console: "readonly",
+  URL: "readonly",
+  AbortController: "readonly",
+  fetch: "readonly"
+};
+
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -14,15 +22,15 @@ export default tseslint.config(
     ]
   },
   {
+    files: ["**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: nodeGlobals
+    }
+  },
+  {
     files: ["**/*.ts"],
     languageOptions: {
-      globals: {
-        process: "readonly",
-        console: "readonly",
-        URL: "readonly",
-        AbortController: "readonly",
-        fetch: "readonly"
-      }
+      globals: nodeGlobals
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

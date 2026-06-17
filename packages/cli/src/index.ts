@@ -4,7 +4,6 @@ import { Command } from "commander";
 import pc from "picocolors";
 import {
   HarnessError,
-  detectPackageManager,
   discoverHarnessAssets,
   listPlaywrightTests,
   loadHarnessCometConfig,

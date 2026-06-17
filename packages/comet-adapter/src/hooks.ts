@@ -12,7 +12,6 @@ import {
   ensureChangeRoot,
   extractScenarioIdsFromDesign,
   parseAssetDecisionTable,
-  type PlaywrightHarnessAction,
   type PlaywrightHarnessDesignRecord,
   type PlaywrightHarnessImpactRecord,
   type PlaywrightTargetOperation,
@@ -20,7 +19,6 @@ import {
   readPlaywrightHarnessDesign,
   readPlaywrightHarnessImpact,
   resolveDesignDocPath,
-  extractPathsFromStructuredBullets
 } from "./change.js";
 import { classifyPlaywrightAssetPath } from "./playwright-impact-policy.js";
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
@@ -340,12 +338,6 @@ async function runCometPlaywrightBuildHook(
       path: designPath
     });
   }
-  const assets = await discoverPlaywrightHarnessAssets({
-    root: projectRoot,
-    testDir: project.config.playwright.testDir,
-    testMatch: project.config.playwright.testMatch
-  });
-  const filesByPath = new Map(assets.tests.map((asset) => [normalizePath(asset.path), asset]));
   await validatePlaywrightPlanTargets(
     projectRoot,
     project.config.playwright.testDir,

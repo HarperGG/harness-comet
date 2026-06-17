@@ -2,9 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {
   discoverHarnessAssets,
-  discoverPlaywrightHarnessAssets,
   HarnessError,
-  loadHarnessCometConfig,
   loadHarnessConfig
 } from "@hapergg/harness-comet-core";
 import {
@@ -303,21 +301,6 @@ async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {
     const config = await loadHarnessConfig({ root: projectRoot });
     const assets = await discoverHarnessAssets(config);
     return assets.scenarios.length + assets.fixtures.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-async function projectHasPlaywrightHarnessAssets(projectRoot: string): Promise<boolean> {
-  try {
-    const project = await loadHarnessCometConfig({ root: projectRoot });
-    if (project.config.mode !== "playwright") return false;
-    const assets = await discoverPlaywrightHarnessAssets({
-      root: projectRoot,
-      testDir: project.config.playwright.testDir,
-      testMatch: project.config.playwright.testMatch
-    });
-    return assets.tests.some((asset) => asset.scenarios.length > 0);
   } catch {
     return false;
   }

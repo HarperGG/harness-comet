@@ -61,6 +61,50 @@ describe("listPlaywrightTests", () => {
     ]);
   });
 
+  it("parses Playwright JSON list output from stdout", async () => {
+    const root = await tempProject();
+
+    const tests = await listPlaywrightTests({
+      root,
+      configFile: "playwright.config.ts",
+      packageManager: "pnpm",
+      runCommand: async () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          suites: [
+            {
+              title: "tests/example.spec.ts",
+              file: "tests/example.spec.ts",
+              specs: [
+                {
+                  title: "Example save flow",
+                  tags: ["harness", "annotation-save"],
+                  tests: [
+                    {
+                      projectName: "chromium",
+                      annotations: [{ type: "incident", description: "BUG-1" }]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }),
+        stderr: ""
+      })
+    });
+
+    expect(tests).toEqual([
+      {
+        project: "chromium",
+        file: "tests/example.spec.ts",
+        title: "Example save flow",
+        tags: ["@annotation-save", "@harness"],
+        annotations: [{ type: "incident", description: "BUG-1" }]
+      }
+    ]);
+  });
+
   it("fails when the listing command fails", async () => {
     const root = await tempProject();
 

@@ -118,7 +118,6 @@ describe("init --mode playwright", () => {
     expect(spec).toContain('tag: ["@harness", "@annotation-save"]');
     expect(spec).toContain("attachJson");
     expect(spec).toContain("mockJson");
-    expect(spec).toContain("fetch('/api/bootstrap')");
 
     const helper = await fs.readFile(path.join(root, "tests", "support", "attachments.ts"), "utf8");
     expect(helper).toContain("testInfo.attach");

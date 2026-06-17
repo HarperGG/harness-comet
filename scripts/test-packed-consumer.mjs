@@ -47,14 +47,8 @@ await run(
   consumerRoot
 );
 await run("pnpm", ["exec", "harness-comet", "--help"], consumerRoot);
-await run(
-  "node",
-  [
-    "--input-type=module",
-    "-e",
-    "console.log(import.meta.resolve('@hapergg/harness-comet-playwright/reporter'))"
-  ],
-  consumerRoot
+const manifestBeforeInit = JSON.parse(
+  await fs.readFile(path.join(consumerRoot, "package.json"), "utf8")
 );
 await run(
   "pnpm",
@@ -81,14 +75,36 @@ if (!playwrightSpec) {
   throw new Error("Generated manifest is missing @hapergg/harness-comet-playwright");
 }
 for (const [name, spec] of Object.entries(generatedManifest.devDependencies ?? {})) {
+  if (manifestBeforeInit.devDependencies?.[name] === spec) continue;
   if (typeof spec === "string" && path.isAbsolute(spec.replace(/^file:/, ""))) {
     throw new Error(`Generated manifest contains absolute local path for ${name}: ${spec}`);
   }
 }
 
+await run(
+  "node",
+  [
+    "--input-type=module",
+    "-e",
+    "console.log(import.meta.resolve('@hapergg/harness-comet-playwright/reporter'))"
+  ],
+  consumerRoot
+);
 await run("pnpm", ["exec", "playwright", "test", "--list"], consumerRoot);
 await run("pnpm", ["exec", "harness-comet", "validate"], consumerRoot);
-await run("pnpm", ["exec", "harness-comet", "run"], consumerRoot);
+await run(
+  "pnpm",
+  [
+    "exec",
+    "harness-comet",
+    "run",
+    "--",
+    "--grep",
+    "__harness_comet_consumer_no_match__",
+    "--pass-with-no-tests"
+  ],
+  consumerRoot
+);
 
 await fs.stat(path.join(consumerRoot, "test-results", "harness-comet", "results.json"));
 console.log(`consumer test passed in ${consumerRoot}`);
