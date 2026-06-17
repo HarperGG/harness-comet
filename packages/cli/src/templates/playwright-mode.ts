@@ -73,67 +73,129 @@ test(
   },
   async ({ page }, testInfo) => {
     const captured: unknown[] = [];
+    const origin = "http://harness.local";
 
-    await mockJson(page, "**/api/bootstrap", {
-      featureFlags: { annotationSave: true }
-    });
-
-    await page.route("**/api/annotations", async (route) => {
-      const request = route.request();
-      captured.push(JSON.parse(request.postData() ?? "{}"));
+    await page.route(\`\${origin}/\`, async (route) => {
       await route.fulfill({
         status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ ok: true, saved: true })
+        contentType: "text/html",
+        body: \`
+          <!doctype html>
+          <html>
+            <body>
+              <main>
+                <h1>Annotation Editor</h1>
+
+                <label>
+                  Label
+                  <input data-testid="label" />
+                </label>
+
+                <label>
+                  Comment
+                  <textarea data-testid="comment"></textarea>
+                </label>
+
+                <button data-testid="save">Save</button>
+                <output data-testid="status"></output>
+              </main>
+
+              <script>
+                async function bootstrap() {
+                  const response = await fetch("/api/bootstrap");
+                  window.__bootstrap = await response.json();
+                }
+
+                document
+                  .querySelector('[data-testid="save"]')
+                  .addEventListener("click", async () => {
+                    const payload = {
+                      id: "annotation-1",
+                      label: document.querySelector(
+                        '[data-testid="label"]'
+                      ).value,
+                      comment: document.querySelector(
+                        '[data-testid="comment"]'
+                      ).value
+                    };
+
+                    await fetch("/api/annotations", {
+                      method: "POST",
+                      headers: {
+                        "content-type": "application/json"
+                      },
+                      body: JSON.stringify(payload)
+                    });
+
+                    document.querySelector(
+                      '[data-testid="status"]'
+                    ).textContent = "Saved";
+                  });
+
+                bootstrap();
+              </script>
+            </body>
+          </html>
+        \`
       });
     });
 
-    await page.setContent(\`
-      <main>
-        <h1>Annotation Editor</h1>
-        <label>
-          Label
-          <input data-testid="label" />
-        </label>
-        <label>
-          Comment
-          <textarea data-testid="comment"></textarea>
-        </label>
-        <button data-testid="save">Save</button>
-        <output data-testid="status"></output>
-      </main>
-      <script>
-        async function bootstrap() {
-          const response = await fetch('/api/bootstrap');
-          window.__bootstrap = await response.json();
-        }
-        document.querySelector('[data-testid="save"]').addEventListener('click', async () => {
-          const payload = {
-            id: "annotation-1",
-            label: document.querySelector('[data-testid="label"]').value,
-            comment: document.querySelector('[data-testid="comment"]').value
-          };
-          await fetch('/api/annotations', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          document.querySelector('[data-testid="status"]').textContent = 'Saved';
-        });
-        bootstrap();
-      </script>
-    \`);
+    await mockJson(page, \`\${origin}/api/bootstrap\`, {
+      featureFlags: {
+        annotationSave: true
+      }
+    });
+
+    await page.route(\`\${origin}/api/annotations\`, async (route) => {
+      const request = route.request();
+
+      captured.push(
+        JSON.parse(request.postData() ?? "{}")
+      );
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          saved: true
+        })
+      });
+    });
+
+    await page.goto(origin);
 
     await expect
-      .poll(() => page.evaluate(() => Boolean(window.__bootstrap?.featureFlags?.annotationSave)))
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean(
+            window.__bootstrap?.featureFlags?.annotationSave
+          )
+        )
+      )
       .toBe(true);
-    await page.getByTestId("label").fill((input as { label: string }).label);
-    await page.getByTestId("comment").fill((input as { comment: string }).comment);
+
+    await page
+      .getByTestId("label")
+      .fill((input as { label: string }).label);
+
+    await page
+      .getByTestId("comment")
+      .fill((input as { comment: string }).comment);
+
     await page.getByTestId("save").click();
 
-    await expect(page.getByTestId("status")).toHaveText("Saved");
+    await expect(
+      page.getByTestId("status")
+    ).toHaveText("Saved");
+
     expect(captured[0]).toEqual(expectedPayload);
-    await attachJson(testInfo, "captured-payload", captured[0]);
+
+    await attachJson(
+      testInfo,
+      "captured-payload",
+      captured[0]
+    );
   }
 );
 `;
