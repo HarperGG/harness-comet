@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { Difference, JsonValue } from "@harness-comet/schema";
-import type { HarnessOracle } from "@harness-comet/sdk";
+import type { Difference, JsonValue } from "@hapergg/harness-comet-schema";
+import type { HarnessOracle } from "@hapergg/harness-comet-sdk";
 
 function stableJson(value: JsonValue): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);

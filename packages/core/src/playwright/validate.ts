@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { PlaywrightModeConfigV1 } from "@harness-comet/schema";
+import type { PlaywrightModeConfigV1 } from "@hapergg/harness-comet-schema";
 import { HarnessError } from "../errors.js";
 import type { PackageManagerName } from "../package-manager.js";
 import { validatePlaywrightIncidents } from "./incidents.js";

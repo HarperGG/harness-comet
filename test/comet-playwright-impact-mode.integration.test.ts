@@ -40,7 +40,7 @@ async function createPlaywrightProject(root: string): Promise<void> {
   await writeFile(path.join(root, "playwright.config.ts"), "export default {};\n", "utf8");
   await writeFile(
     path.join(root, "tests", "example.spec.ts"),
-    `import { defineHarnessScenario } from "@harness-comet/playwright";
+    `import { defineHarnessScenario } from "@hapergg/harness-comet-playwright";
 defineHarnessScenario({
   id: "example-smoke",
   title: "Example smoke",
@@ -97,7 +97,7 @@ describe("comet playwright impact mode enforcement", () => {
     await createChange(root, "demo-change", "maintain");
     await writeFile(
       path.join(root, "tests", "new-flow.spec.ts"),
-      `import { defineHarnessScenario } from "@harness-comet/playwright";
+      `import { defineHarnessScenario } from "@hapergg/harness-comet-playwright";
 defineHarnessScenario({
   id: "new-flow",
   title: "New flow",
@@ -130,7 +130,7 @@ defineHarnessScenario({
     await createChange(root, "demo-change", "full");
     await writeFile(
       path.join(root, "tests", "new-flow.spec.ts"),
-      `import { defineHarnessScenario } from "@harness-comet/playwright";
+      `import { defineHarnessScenario } from "@hapergg/harness-comet-playwright";
 defineHarnessScenario({
   id: "new-flow",
   title: "New flow",

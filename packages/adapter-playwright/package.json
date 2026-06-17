@@ -1,27 +1,46 @@
 {
-  "name": "@harness-comet/adapter-playwright",
+  "name": "@hapergg/harness-comet-adapter-playwright",
   "version": "0.1.0",
+  "description": "Playwright-backed Harness Comet runtime adapter.",
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HarperGG/harness-comet.git",
+    "directory": "packages/adapter-playwright"
+  },
+  "homepage": "https://github.com/HarperGG/harness-comet#readme",
+  "bugs": {
+    "url": "https://github.com/HarperGG/harness-comet/issues"
+  },
   "files": [
-    "dist",
-    "package.json"
+    "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "test -f dist/index.js && test -f dist/index.d.ts"
   },
   "dependencies": {
-    "@harness-comet/schema": "workspace:*",
-    "@harness-comet/sdk": "workspace:*",
+    "@hapergg/harness-comet-schema": "workspace:*",
+    "@hapergg/harness-comet-sdk": "workspace:*",
     "playwright": "^1.60.0"
   },
   "devDependencies": {

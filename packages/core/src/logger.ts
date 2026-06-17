@@ -1,5 +1,5 @@
-import type { JsonValue } from "@harness-comet/schema";
-import type { HarnessLogger } from "@harness-comet/sdk";
+import type { JsonValue } from "@hapergg/harness-comet-schema";
+import type { HarnessLogger } from "@hapergg/harness-comet-sdk";
 
 export function createLogger(options: { quiet?: boolean; verbose?: boolean } = {}): HarnessLogger {
   const write = (level: string, message: string, meta?: Record<string, JsonValue>) => {

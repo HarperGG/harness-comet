@@ -15,7 +15,7 @@ import {
   validatePlaywrightHarnessProject,
   validateHarnessProject,
   type DryRunResult
-} from "@harness-comet/core";
+} from "@hapergg/harness-comet-core";
 import { registerCometCommands } from "./commands/comet.js";
 import { registerImpactCommands } from "./commands/impact.js";
 import { createPlaywrightIncident } from "./commands/create.js";
@@ -270,7 +270,7 @@ async function doctorCommand(global: GlobalOptions): Promise<void> {
     ) {
       try {
         const { getPlaywrightBrowserDiagnostics } = await import(
-          "@harness-comet/adapter-playwright"
+          "@hapergg/harness-comet-adapter-playwright"
         );
         const browser = config.config.playwright?.browser ?? "chromium";
         const diagnostics = await getPlaywrightBrowserDiagnostics(browser);

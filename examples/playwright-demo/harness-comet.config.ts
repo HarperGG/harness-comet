@@ -10,7 +10,7 @@ export default {
   adapter: {
     default: "playwright",
     entries: {
-      playwright: "@harness-comet/adapter-playwright"
+      playwright: "@hapergg/harness-comet-adapter-playwright"
     }
   },
   runtime: {

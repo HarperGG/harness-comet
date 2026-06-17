@@ -1,0 +1,26 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@hapergg/harness-comet-schema",
+      "@hapergg/harness-comet-sdk",
+      "@hapergg/harness-comet-core",
+      "@hapergg/harness-comet-playwright",
+      "@hapergg/harness-comet-comet-adapter",
+      "@hapergg/harness-comet-adapter-memory",
+      "@hapergg/harness-comet-adapter-playwright",
+      "@hapergg/harness-comet-cli"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [],
+  "privatePackages": {
+    "version": true,
+    "tag": true
+  }
+}

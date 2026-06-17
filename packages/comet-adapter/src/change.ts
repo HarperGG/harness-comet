@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { HarnessError } from "@harness-comet/core";
+import { HarnessError } from "@hapergg/harness-comet-core";
 
 export type HarnessImpactMode = "full" | "maintain" | "off";
 export type PlaywrightHarnessAction = "none" | "verify-existing" | "update-or-create";

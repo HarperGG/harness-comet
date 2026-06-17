@@ -14,7 +14,7 @@ describe("discoverPlaywrightHarnessAssets", () => {
     await fs.mkdir(path.join(root, "tests"), { recursive: true });
     await fs.writeFile(
       path.join(root, "tests", "example.spec.ts"),
-      `import { defineHarnessScenario } from "@harness-comet/playwright";
+      `import { defineHarnessScenario } from "@hapergg/harness-comet-playwright";
        const scenario = defineHarnessScenario({
          id: "example-smoke",
          title: "Example smoke",

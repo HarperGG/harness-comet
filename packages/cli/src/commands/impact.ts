@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import type {
   HarnessImpactRecord,
   PlaywrightHarnessImpactRecord
-} from "@harness-comet/comet-adapter";
+} from "@hapergg/harness-comet-comet-adapter";
 
 interface GlobalOptions {
   root?: string;
@@ -97,9 +97,9 @@ function formatImpactReport(
   return `${lines.join("\n")}\n`;
 }
 
-async function loadCometAdapter(): Promise<typeof import("@harness-comet/comet-adapter")> {
+async function loadCometAdapter(): Promise<typeof import("@hapergg/harness-comet-comet-adapter")> {
   try {
-    const adapter = await import("@harness-comet/comet-adapter");
+    const adapter = await import("@hapergg/harness-comet-comet-adapter");
     if (
         "readHarnessImpact" in adapter &&
         "writeHarnessImpact" in adapter &&
@@ -120,7 +120,7 @@ async function loadCometAdapter(): Promise<typeof import("@harness-comet/comet-a
 }
 
 async function writeRuntimeImpact(
-  adapter: typeof import("@harness-comet/comet-adapter"),
+  adapter: typeof import("@hapergg/harness-comet-comet-adapter"),
   root: string,
   commandOptions: { change: string; mode?: string; reason: string }
 ) {
@@ -134,7 +134,7 @@ async function writeRuntimeImpact(
 }
 
 async function writePlaywrightImpact(
-  adapter: typeof import("@harness-comet/comet-adapter"),
+  adapter: typeof import("@hapergg/harness-comet-comet-adapter"),
   root: string,
   commandOptions: { change: string; action?: string; reason: string; confirmedBy?: string }
 ) {

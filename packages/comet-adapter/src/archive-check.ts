@@ -6,7 +6,7 @@ import {
   HarnessError,
   loadHarnessCometConfig,
   loadHarnessConfig
-} from "@harness-comet/core";
+} from "@hapergg/harness-comet-core";
 import {
   readChangeCometYaml,
   extractPlaywrightTargetTestsFromDesign,

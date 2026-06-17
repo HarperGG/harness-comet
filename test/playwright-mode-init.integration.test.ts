@@ -12,6 +12,8 @@ async function tempProject(): Promise<string> {
 }
 
 describe("init --mode playwright", () => {
+  const legacyPlaywrightPackage = ["@harness", "comet/playwright"].join("-");
+
   it("creates a minimal Playwright mode project", async () => {
     const root = await tempProject();
     const result = await execa("pnpm", [
@@ -61,11 +63,14 @@ describe("init --mode playwright", () => {
     expect(result.exitCode).toBe(0);
     const pkg = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf8")) as {
       devDependencies: Record<string, string>;
-      peerDependencies: Record<string, string>;
+      peerDependencies?: Record<string, string>;
     };
     expect(pkg.devDependencies["@playwright/test"]).toBe("^1.60.0");
-    expect(pkg.devDependencies["@harness-comet/playwright"]).toBeDefined();
-    expect(pkg.peerDependencies["@playwright/test"]).toBe("^1.60.0");
+    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).toBe("^0.1.0");
+    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toMatch(/^file:/);
+    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toContain("workspace:");
+    expect(pkg.devDependencies).not.toHaveProperty(legacyPlaywrightPackage);
+    expect(pkg.peerDependencies).toBeUndefined();
   });
 
   it("writes a richer Playwright config template", async () => {
@@ -86,7 +91,7 @@ describe("init --mode playwright", () => {
     expect(config).toContain('testMatch: ["**/*.spec.ts"]');
     expect(config).toContain("fullyParallel: true");
     expect(config).toContain('forbidOnly: Boolean(process.env.CI)');
-    expect(config).toContain('["@harness-comet/playwright/reporter"]');
+    expect(config).toContain('["@hapergg/harness-comet-playwright/reporter"]');
     expect(config).toContain('screenshot: "only-on-failure"');
     expect(config).toContain('video: "retain-on-failure"');
     expect(config).toContain('name: "chromium"');

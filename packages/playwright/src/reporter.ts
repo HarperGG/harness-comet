@@ -5,7 +5,7 @@ import type {
   PlaywrightResultAttachmentV1,
   PlaywrightResultErrorV1,
   PlaywrightTestResultV1
-} from "@harness-comet/schema";
+} from "@hapergg/harness-comet-schema";
 
 type ReporterTestLike = {
   title?: string;

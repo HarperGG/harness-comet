@@ -32,7 +32,7 @@ describe("loadHarnessCometConfig", () => {
       `export default {
         schemaVersion: 1,
         mode: "runtime",
-        adapter: { default: "memory", entries: { memory: "@harness-comet/adapter-memory" } }
+        adapter: { default: "memory", entries: { memory: "@hapergg/harness-comet-adapter-memory" } }
       };`
     );
 
@@ -46,7 +46,7 @@ describe("loadHarnessCometConfig", () => {
       `export default {
         schemaVersion: 1,
         mode: "runtime",
-        adapter: { default: "memory", entries: { memory: "@harness-comet/adapter-memory" } }
+        adapter: { default: "memory", entries: { memory: "@hapergg/harness-comet-adapter-memory" } }
       };`
     );
 

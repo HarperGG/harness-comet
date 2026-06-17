@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { HarnessError } from "@harness-comet/core";
+import { HarnessError } from "@hapergg/harness-comet-core";
 import { incidentReadmeTemplate, incidentSpecTemplate } from "../templates/incident.js";
 
 export interface CreatePlaywrightIncidentOptions {

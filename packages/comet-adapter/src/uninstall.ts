@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { HarnessError } from "@harness-comet/core";
+import { HarnessError } from "@hapergg/harness-comet-core";
 import { removeManagedPatch } from "./assets.js";
 import { detectCometCli } from "./discovery/comet-cli.js";
 import {

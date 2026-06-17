@@ -1,4 +1,4 @@
-import { HarnessError } from "@harness-comet/core";
+import { HarnessError } from "@hapergg/harness-comet-core";
 import { diffCometIntegration } from "./diff.js";
 import { detectCometCli } from "./discovery/comet-cli.js";
 import { HARNESS_COMET_MANIFEST_PATH, readManifest } from "./manifest.js";

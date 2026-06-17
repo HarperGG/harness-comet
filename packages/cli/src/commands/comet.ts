@@ -1,4 +1,4 @@
-import { HarnessError, mapErrorToExitCode } from "@harness-comet/core";
+import { HarnessError, mapErrorToExitCode } from "@hapergg/harness-comet-core";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -15,7 +15,7 @@ import type {
   CometInstallReport,
   CometUninstallReport,
   CometVerifyReport
-} from "@harness-comet/comet-adapter";
+} from "@hapergg/harness-comet-comet-adapter";
 import type { Command } from "commander";
 
 const execFileAsync = promisify(execFile);
@@ -400,7 +400,7 @@ async function installPlaywrightBrowsers(projectRoot: string): Promise<string> {
   const command = "pnpm";
   const args = [
     "--filter",
-    "@harness-comet/adapter-playwright",
+    "@hapergg/harness-comet-adapter-playwright",
     "exec",
     "playwright",
     "install",
@@ -595,14 +595,14 @@ function formatUninstallReport(report: CometUninstallReport): string {
   return `${lines.join("\n")}\n`;
 }
 
-async function loadCometAdapter(): Promise<typeof import("@harness-comet/comet-adapter")> {
+async function loadCometAdapter(): Promise<typeof import("@hapergg/harness-comet-comet-adapter")> {
   const sourceModuleUrl = new URL("../../../comet-adapter/src/index.ts", import.meta.url);
   if (import.meta.url.includes("/packages/cli/src/")) {
     return await import(sourceModuleUrl.href);
   }
 
   try {
-    const adapter = await import("@harness-comet/comet-adapter");
+    const adapter = await import("@hapergg/harness-comet-comet-adapter");
     if (
       "buildCometDiscoveryReport" in adapter &&
       "archiveCheckCometChange" in adapter &&

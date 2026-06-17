@@ -7,7 +7,7 @@ import {
   loadHarnessConfig,
   validateHarnessProject,
   HarnessError
-} from "@harness-comet/core";
+} from "@hapergg/harness-comet-core";
 import {
   ensureChangeRoot,
   extractScenarioIdsFromDesign,

@@ -1,4 +1,4 @@
-import type { Difference, JsonValue, ScenarioV1 } from "@harness-comet/schema";
+import type { Difference, JsonValue, ScenarioV1 } from "@hapergg/harness-comet-schema";
 
 export interface HarnessLogger {
   error(message: string, meta?: Record<string, JsonValue>): void;

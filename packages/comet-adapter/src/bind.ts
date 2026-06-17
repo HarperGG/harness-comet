@@ -1,6 +1,6 @@
 import path from "node:path";
 import { execa } from "execa";
-import { HarnessError } from "@harness-comet/core";
+import { HarnessError } from "@hapergg/harness-comet-core";
 import { readManifest } from "./manifest.js";
 import { readChangeCometYaml } from "./change.js";
 import type { CometBindReport } from "./types.js";

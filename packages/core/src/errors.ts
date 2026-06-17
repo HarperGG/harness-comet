@@ -1,4 +1,4 @@
-import type { HarnessErrorShape, JsonValue, RunResultV1 } from "@harness-comet/schema";
+import type { HarnessErrorShape, JsonValue, RunResultV1 } from "@hapergg/harness-comet-schema";
 
 export type HarnessErrorCategory = HarnessErrorShape["category"];
 

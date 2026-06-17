@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import fg from "fast-glob";
 import YAML from "yaml";
-import * as harnessSchema from "@harness-comet/schema";
-import type { FixtureMetadataV1, JsonValue, ScenarioV1 } from "@harness-comet/schema";
+import * as harnessSchema from "@hapergg/harness-comet-schema";
+import type { FixtureMetadataV1, JsonValue, ScenarioV1 } from "@hapergg/harness-comet-schema";
 import type { LoadedHarnessConfig } from "./config.js";
 import { resolveInsideRoot } from "./config.js";
 import { HarnessError } from "./errors.js";
@@ -251,7 +251,7 @@ function compactQueryTerms(query: HarnessAssetAnalysisQuery): string[] {
   );
 }
 
-async function loadSchemaApi(): Promise<typeof import("@harness-comet/schema")> {
+async function loadSchemaApi(): Promise<typeof import("@hapergg/harness-comet-schema")> {
   if ("ScenarioBusinessV1Schema" in harnessSchema && "FixtureBusinessV1Schema" in harnessSchema) {
     return harnessSchema;
   }

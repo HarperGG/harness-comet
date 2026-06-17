@@ -1,4 +1,4 @@
-import { loadHarnessCometConfig } from "@harness-comet/core";
+import { loadHarnessCometConfig } from "@hapergg/harness-comet-core";
 import type { HarnessCometProjectMode } from "./types.js";
 
 export async function resolveHarnessCometProjectMode(

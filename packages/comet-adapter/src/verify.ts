@@ -6,7 +6,7 @@ import {
   HarnessPlaywrightResultsV1Schema,
   PlaywrightVerifyReceiptV2Schema,
   type HarnessPlaywrightResultsV1
-} from "@harness-comet/schema";
+} from "@hapergg/harness-comet-schema";
 import {
   discoverHarnessAssets,
   loadHarnessCometConfig,
@@ -15,7 +15,7 @@ import {
   runHarness,
   runPlaywrightHarness,
   HarnessError
-} from "@harness-comet/core";
+} from "@hapergg/harness-comet-core";
 import { HARNESS_COMET_VERSION, sha256, writeFileAtomic } from "./manifest.js";
 import { detectCometCli } from "./discovery/comet-cli.js";
 import {
@@ -249,7 +249,7 @@ async function verifyPlaywrightCometChange(
       code: "COMET_VERIFY_PLAYWRIGHT_REPORTER_MISSING",
       category: "playwright",
       message: `Playwright results file was not produced for ${change}`,
-      hint: `Ensure playwright.config registers "@harness-comet/playwright/reporter" and rerun comet verify`,
+      hint: `Ensure playwright.config registers "@hapergg/harness-comet-playwright/reporter" and rerun comet verify`,
       path: resultsPath
     });
   }

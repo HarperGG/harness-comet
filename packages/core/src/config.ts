@@ -1,7 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { createJiti } from "jiti";
-import { HarnessConfigV1Schema, type HarnessConfigV1 } from "@harness-comet/schema";
+import { HarnessConfigV1Schema, type HarnessConfigV1 } from "@hapergg/harness-comet-schema";
 import { HarnessError } from "./errors.js";
 
 export interface LoadedHarnessConfig {

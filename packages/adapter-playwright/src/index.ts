@@ -2,8 +2,8 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs/promises";
 import type { Browser, BrowserContext, Page, Request } from "playwright";
 import { chromium, firefox, webkit } from "playwright";
-import type { HarnessAdapter, RunContext } from "@harness-comet/sdk";
-import type { JsonValue } from "@harness-comet/schema";
+import type { HarnessAdapter, RunContext } from "@hapergg/harness-comet-sdk";
+import type { JsonValue } from "@hapergg/harness-comet-schema";
 
 interface PlaywrightState {
   browser?: Browser;

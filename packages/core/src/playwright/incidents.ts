@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import path from "node:path";
-import { IncidentRecordV1Schema, type IncidentRecordV1 } from "@harness-comet/schema";
+import { IncidentRecordV1Schema, type IncidentRecordV1 } from "@hapergg/harness-comet-schema";
 import { HarnessError } from "../errors.js";
 
 export interface ValidatePlaywrightIncidentsOptions {

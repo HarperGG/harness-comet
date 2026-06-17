@@ -7,8 +7,8 @@ import type {
   RunResultV1,
   ScenarioRunResultV1,
   ScenarioV1
-} from "@harness-comet/schema";
-import type { HarnessAdapter, RunContext } from "@harness-comet/sdk";
+} from "@hapergg/harness-comet-schema";
+import type { HarnessAdapter, RunContext } from "@hapergg/harness-comet-sdk";
 import type { LoadedHarnessConfig } from "./config.js";
 import { loadHarnessConfig } from "./config.js";
 import {

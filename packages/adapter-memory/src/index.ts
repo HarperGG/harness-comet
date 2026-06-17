@@ -1,5 +1,5 @@
-import type { HarnessAdapter } from "@harness-comet/sdk";
-import type { JsonValue } from "@harness-comet/schema";
+import type { HarnessAdapter } from "@hapergg/harness-comet-sdk";
+import type { JsonValue } from "@hapergg/harness-comet-schema";
 
 function asObject(input: JsonValue): Record<string, JsonValue> {
   if (!input || typeof input !== "object" || Array.isArray(input)) {

@@ -76,7 +76,7 @@ describe("HarnessCometConfigV1Schema", () => {
       adapter: {
         default: "memory",
         entries: {
-          memory: "@harness-comet/adapter-memory"
+          memory: "@hapergg/harness-comet-adapter-memory"
         }
       }
     });
@@ -169,7 +169,7 @@ describe("HarnessCometConfigV1Schema", () => {
         adapter: {
           default: "memory",
           entries: {
-            memory: "@harness-comet/adapter-memory"
+            memory: "@hapergg/harness-comet-adapter-memory"
           }
         },
         playwright: {

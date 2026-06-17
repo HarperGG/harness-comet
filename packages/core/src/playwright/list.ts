@@ -104,7 +104,7 @@ function normalizeListedTests(tests: ListedPlaywrightTest[]): ListedPlaywrightTe
 function resolveListReporterModulePath(): string {
   const require = createRequire(import.meta.url);
   try {
-    return require.resolve("@harness-comet/playwright/list-reporter");
+    return require.resolve("@hapergg/harness-comet-playwright/list-reporter");
   } catch {
     return new URL("../../../playwright/dist/list-reporter.js", import.meta.url).pathname;
   }

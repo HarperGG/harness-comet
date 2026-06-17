@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { HarnessAdapter } from "@harness-comet/sdk";
+import type { HarnessAdapter } from "@hapergg/harness-comet-sdk";
 import type { LoadedHarnessConfig } from "./config.js";
 import { resolveInsideRoot } from "./config.js";
 import { HarnessError } from "./errors.js";

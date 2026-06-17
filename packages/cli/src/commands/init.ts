@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
-import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { HarnessError } from "@hapergg/harness-comet-core";
 import {
   playwrightAcceptanceCriteriaTemplate,
   playwrightAttachmentsTemplate,
@@ -15,6 +14,12 @@ import {
   playwrightMockApiTemplate,
   testingReadmeTemplate
 } from "../templates/playwright-mode.js";
+import {
+  HARNESS_COMET_ADAPTER_MEMORY_PACKAGE,
+  HARNESS_COMET_ADAPTER_PLAYWRIGHT_PACKAGE,
+  HARNESS_COMET_PLAYWRIGHT_DEPENDENCY,
+  HARNESS_COMET_PLAYWRIGHT_PACKAGE
+} from "../package-info.js";
 
 export interface InitHarnessOptions {
   root: string;
@@ -211,8 +216,8 @@ function runtimeConfigTemplate(adapter: string): string {
   const defaultAdapter = adapter === "playwright" ? "playwright" : "memory";
   const entry =
     defaultAdapter === "playwright"
-      ? "@harness-comet/adapter-playwright"
-      : "@harness-comet/adapter-memory";
+      ? HARNESS_COMET_ADAPTER_PLAYWRIGHT_PACKAGE
+      : HARNESS_COMET_ADAPTER_MEMORY_PACKAGE;
   return `export default {
   schemaVersion: 1,
   mode: "runtime",
@@ -301,72 +306,65 @@ async function ensurePlaywrightPackageJson(root: string): Promise<void> {
   }
 
   const devDependencies = ((pkg.devDependencies ?? {}) as Record<string, string>) || {};
-  const peerDependencies = ((pkg.peerDependencies ?? {}) as Record<string, string>) || {};
   if (!devDependencies["@playwright/test"]) {
     devDependencies["@playwright/test"] = "^1.60.0";
   }
-  if (!devDependencies["@harness-comet/playwright"]) {
-    devDependencies["@harness-comet/playwright"] = resolvePlaywrightDependencySpec();
-  }
-  if (!peerDependencies["@playwright/test"]) {
-    peerDependencies["@playwright/test"] = "^1.60.0";
+  if (!devDependencies[HARNESS_COMET_PLAYWRIGHT_PACKAGE]) {
+    devDependencies[HARNESS_COMET_PLAYWRIGHT_PACKAGE] = HARNESS_COMET_PLAYWRIGHT_DEPENDENCY;
   }
 
   pkg.private ??= true;
   pkg.devDependencies = sortObject(devDependencies);
-  pkg.peerDependencies = sortObject(peerDependencies);
+  delete pkg.peerDependencies;
   await fs.writeFile(packagePath, `${JSON.stringify(pkg, null, 2)}\n`, "utf8");
-}
-
-function resolvePlaywrightDependencySpec(): string {
-  const packagePath = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    "../../package.json"
-  );
-  return readPackageVersionSync(packagePath);
-}
-
-function readPackageVersionSync(packagePath: string): string {
-  const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as { version?: unknown };
-  if (typeof packageJson.version !== "string" || packageJson.version.length === 0) {
-    throw new Error(`Unable to read package version from ${packagePath}`);
-  }
-  return packageJson.version;
 }
 
 async function installProjectDependencies(root: string): Promise<boolean> {
   const manager = await detectPackageManager(root);
   const { execa } = await import("execa");
+  const command = manager === "yarn" ? "yarn" : manager === "npm" ? "npm" : "pnpm";
+  const args = ["install"];
   try {
-    const command = manager === "yarn" ? "yarn" : manager === "npm" ? "npm" : "pnpm";
-    const args = manager === "yarn" ? ["install"] : ["install"];
     await execa(command, args, { cwd: root, stdio: "inherit" });
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    throw new HarnessError({
+      code: "PLAYWRIGHT_DEPENDENCY_INSTALL_FAILED",
+      category: "environment",
+      message: "Initialized harness assets, but dependency installation failed",
+      hint: `Run: ${formatCommand(command, args)}`,
+      context: {
+        root,
+        command: formatCommand(command, args),
+        cause: error instanceof Error ? error.message : String(error)
+      }
+    });
   }
 }
 
 async function installPlaywrightBrowsers(root: string): Promise<boolean> {
   const manager = await detectPackageManager(root);
   const { execa } = await import("execa");
+  const command = manager === "yarn" ? "yarn" : manager === "npm" ? "npm" : "pnpm";
+  const args =
+    manager === "yarn"
+      ? ["playwright", "install", "chromium"]
+      : ["exec", "playwright", "install", "chromium"];
   try {
-    if (manager === "yarn") {
-      await execa("yarn", ["playwright", "install", "chromium"], { cwd: root, stdio: "inherit" });
-    } else if (manager === "npm") {
-      await execa("npm", ["exec", "playwright", "install", "chromium"], {
-        cwd: root,
-        stdio: "inherit"
-      });
-    } else {
-      await execa("pnpm", ["exec", "playwright", "install", "chromium"], {
-        cwd: root,
-        stdio: "inherit"
-      });
-    }
+    await execa(command, args, { cwd: root, stdio: "inherit" });
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    throw new HarnessError({
+      code: "PLAYWRIGHT_BROWSER_INSTALL_FAILED",
+      category: "environment",
+      message: "Initialized harness assets and dependencies, but Chromium installation failed",
+      hint: "Run: pnpm exec playwright install chromium",
+      context: {
+        root,
+        command: formatCommand(command, args),
+        cause: error instanceof Error ? error.message : String(error)
+      }
+    });
   }
 }
 
@@ -379,7 +377,7 @@ async function loadDetectPackageManager(): Promise<
   (root: string) => Promise<"pnpm" | "npm" | "yarn">
 > {
   try {
-    const core = await import("@harness-comet/core");
+    const core = await import("@hapergg/harness-comet-core");
     if ("detectPackageManager" in core) {
       return core.detectPackageManager;
     }
@@ -396,6 +394,10 @@ function sortObject(input: Record<string, string>): Record<string, string> {
   return Object.fromEntries(
     Object.entries(input).sort(([left], [right]) => left.localeCompare(right))
   );
+}
+
+function formatCommand(command: string, args: string[]): string {
+  return [command, ...args].join(" ");
 }
 
 function normalizePath(value: string): string {

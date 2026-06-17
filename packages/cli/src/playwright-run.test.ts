@@ -15,8 +15,8 @@ const loadHarnessCometConfig = vi.fn(async () => ({
   }
 }));
 
-vi.mock("@harness-comet/core", async () => {
-  const actual = await vi.importActual<typeof import("@harness-comet/core")>("@harness-comet/core");
+vi.mock("@hapergg/harness-comet-core", async () => {
+  const actual = await vi.importActual<typeof import("@hapergg/harness-comet-core")>("@hapergg/harness-comet-core");
   return {
     ...actual,
     loadHarnessCometConfig,

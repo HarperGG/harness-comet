@@ -10,7 +10,7 @@ export default {
   adapter: {
     default: "memory",
     entries: {
-      memory: "@harness-comet/adapter-memory"
+      memory: "@hapergg/harness-comet-adapter-memory"
     }
   },
   runtime: {
