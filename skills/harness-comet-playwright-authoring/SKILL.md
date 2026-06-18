@@ -1,39 +1,61 @@
 ---
 name: harness-comet-playwright-authoring
-description: Use only when the user explicitly invokes @harness-comet-playwright-authoring and immediately provides a concrete requirement. Generate complete, project-consistent Playwright tests and required Harness-Comet assets for that requirement. Never activate implicitly, never broaden the requested scope, and never return a partial or example-only implementation.
+description: Use only when the user explicitly selects, invokes, or names this skill through the host agent's supported mechanism and provides a concrete requirement. Generate complete, project-consistent Playwright tests and required Harness-Comet assets for that requirement. Never activate implicitly, never broaden the requested scope, and never return a partial or example-only implementation.
 ---
 
 # Harness-Comet Playwright Authoring
 
 ## Activation Contract
 
-This skill is **manual-invocation only**.
+This skill is **explicit-invocation only**.
 
-Activate it only when the user's message explicitly contains:
+Activate it only when both conditions are true:
+
+1. The user explicitly selects, invokes, or names this skill using a mechanism supported by the current host agent.
+2. The same request includes a concrete requirement, bug description, acceptance criterion, or user workflow to implement.
+
+Explicit invocation may look different across agents. Examples include:
 
 ```text
 @harness-comet-playwright-authoring
+<concrete requirement>
 ```
 
-and the invocation is followed by a concrete requirement, bug description, acceptance criterion, or user workflow to implement.
+```text
+/harness-comet-playwright-authoring
+<concrete requirement>
+```
+
+```text
+Use the harness-comet-playwright-authoring skill.
+<concrete requirement>
+```
+
+```text
+Select “Harness-Comet Playwright Authoring” from the host agent's skill, command, prompt, or tool picker, then provide the requirement.
+```
+
+The literal `@harness-comet-playwright-authoring` syntax is an optional convention, not a universal requirement.
 
 Valid example:
 
 ```text
-@harness-comet-playwright-authoring
+Use the harness-comet-playwright-authoring skill.
+
 保存按钮点击后显示确认弹窗。确认后发送保存请求；取消后不得发送请求，并保持未保存状态。
 ```
 
 Do not activate this skill when:
 
+- the host agent inferred it only from topic similarity;
 - the user only asks a general Playwright question;
 - the user asks what this skill does;
-- the user asks to review, explain, or discuss testing strategy without explicitly invoking the skill;
+- the user asks to review, explain, or discuss testing strategy without explicitly selecting or naming the skill;
 - the user mentions Harness-Comet, Playwright, fixtures, mocks, reporters, or incidents in ordinary conversation;
 - the requirement is absent or too vague to identify a testable behavior;
-- another agent or instruction merely suggests this skill without the user's explicit invocation.
+- repository-level instructions merely advertise or reference the skill without the user choosing it for the current task.
 
-If the user invokes the skill but provides no concrete requirement, ask for exactly one concrete requirement. Do not inspect or modify the repository before that requirement is available.
+If the user explicitly invokes the skill but provides no concrete requirement, ask for exactly one concrete requirement. Do not inspect or modify the repository before that requirement is available.
 
 ## Single Responsibility
 
@@ -439,8 +461,8 @@ Do not include broad future recommendations, optional enhancements, or unrelated
 
 Do not mark the task complete unless every applicable condition is satisfied:
 
-- [ ] The skill was explicitly invoked by the user.
-- [ ] A concrete requirement followed the invocation.
+- [ ] The user explicitly selected, invoked, or named this skill through the current host agent.
+- [ ] A concrete requirement accompanied the invocation.
 - [ ] Every stated acceptance criterion appears in the requirement checklist.
 - [ ] Existing Playwright and Harness-Comet architecture was inspected.
 - [ ] The smallest correct existing asset boundary was selected.
