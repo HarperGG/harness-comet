@@ -1,5 +1,5 @@
 import { HarnessError, mapErrorToExitCode } from "@hapergg/harness-comet-core";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -13,12 +13,15 @@ import type {
   CometHookReport,
   CometInstallFilePlan,
   CometInstallReport,
+  CometCliStatus,
   CometUninstallReport,
   CometVerifyReport
 } from "@hapergg/harness-comet-comet-adapter";
 import type { Command } from "commander";
 
 const execFileAsync = promisify(execFile);
+const COMET_PACKAGE = "@rpamis/comet";
+const COMET_INSTALL_COMMAND = `npm install -g ${COMET_PACKAGE}`;
 
 interface GlobalOptions {
   root?: string;
@@ -204,6 +207,10 @@ export function registerCometCommands(
       withErrors(async (commandOptions) => {
         const options = getOptions();
         const root = options.root ?? process.cwd();
+        if (!options.json && !commandOptions.dryRun) {
+          const shouldContinue = await ensureCometCliForInstall(root, commandOptions);
+          if (!shouldContinue) return;
+        }
         const report = await installComet(root, commandOptions);
         const harness = await maybeInitHarness(root, commandOptions);
         if (options.json) {
@@ -270,6 +277,153 @@ async function installComet(
     force: commandOptions.force,
     projectMode: commandOptions.mode
   });
+}
+
+async function ensureCometCliForInstall(
+  projectRoot: string,
+  commandOptions: { yes?: boolean }
+): Promise<boolean> {
+  const adapter = await loadCometAdapter();
+  const comet = await adapter.detectCometCli(projectRoot);
+  if (comet.installed) return true;
+
+  process.stdout.write(formatMissingCometPrompt(comet));
+  if (!commandOptions.yes) {
+    const confirmed = await confirmCometInstall();
+    if (!confirmed) {
+      process.stdout.write(formatCometInstallInstructions());
+      process.exitCode = 6;
+      return false;
+    }
+  }
+
+  await installCometCli(projectRoot);
+  const installed = await adapter.detectCometCli(projectRoot);
+  if (!installed.installed) {
+    throw new HarnessError({
+      code: "COMET_CLI_INSTALL_FAILED",
+      category: "environment",
+      message: "Installed @rpamis/comet, but the Comet CLI is still not available",
+      hint: `Run: ${COMET_INSTALL_COMMAND}`,
+      context: {
+        root: projectRoot,
+        command: COMET_INSTALL_COMMAND,
+        cause: installed.error ?? "Comet CLI was not found after installation"
+      }
+    });
+  }
+  return true;
+}
+
+function formatMissingCometPrompt(comet: CometCliStatus): string {
+  return [
+    "Comet CLI was not found.",
+    "",
+    "Harness-Comet requires:",
+    "",
+    `  ${COMET_PACKAGE} ${comet.supportedRange}`,
+    "",
+    "Install it globally now?",
+    "",
+    "  › Yes, run npm install -g @rpamis/comet",
+    "",
+    "    No, show installation instructions",
+    ""
+  ].join("\n");
+}
+
+async function confirmCometInstall(): Promise<boolean> {
+  const input = await readStdinLine();
+  if (!input.receivedInput) return false;
+  const answer = input.value.trim().toLowerCase();
+  return answer === "" || answer === "y" || answer === "yes" || answer === "1";
+}
+
+async function readStdinLine(): Promise<{ value: string; receivedInput: boolean }> {
+  if (!process.stdin.readable || process.stdin.readableEnded) {
+    return { value: "", receivedInput: false };
+  }
+  return await new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      process.stdin.off("data", onData);
+      process.stdin.off("end", onEnd);
+      if (!process.stdin.isTTY) process.stdin.pause();
+    };
+    const settle = (value: string, receivedInput: boolean) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve({ value, receivedInput });
+    };
+    const onData = (chunk: Buffer | string) => {
+      const text = String(chunk);
+      settle(text.split(/\r?\n/, 1)[0] ?? "", true);
+    };
+    const onEnd = () => settle("", false);
+    process.stdin.once("data", onData);
+    process.stdin.once("end", onEnd);
+    process.stdin.resume();
+  });
+}
+
+async function installCometCli(projectRoot: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("npm", ["install", "-g", COMET_PACKAGE], {
+      cwd: projectRoot,
+      stdio: "inherit"
+    });
+
+    child.on("error", (error) => {
+      reject(
+        new HarnessError({
+          code: "COMET_CLI_INSTALL_FAILED",
+          category: "environment",
+          message: "Unable to install @rpamis/comet",
+          hint: `Run: ${COMET_INSTALL_COMMAND}`,
+          context: {
+            root: projectRoot,
+            command: COMET_INSTALL_COMMAND,
+            cause: error.message
+          }
+        })
+      );
+    });
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const cause = signal ? `signal ${signal}` : `exit code ${code ?? "unknown"}`;
+      reject(
+        new HarnessError({
+          code: "COMET_CLI_INSTALL_FAILED",
+          category: "environment",
+          message: "Unable to install @rpamis/comet",
+          hint: `Run: ${COMET_INSTALL_COMMAND}`,
+          context: {
+            root: projectRoot,
+            command: COMET_INSTALL_COMMAND,
+            cause
+          }
+        })
+      );
+    });
+  });
+}
+
+function formatCometInstallInstructions(): string {
+  return [
+    "",
+    "Install Comet CLI with:",
+    "",
+    `  ${COMET_INSTALL_COMMAND}`,
+    "",
+    "Then re-run:",
+    "",
+    "  pnpm exec harness-comet comet install",
+    ""
+  ].join("\n");
 }
 
 async function maybeInitHarness(

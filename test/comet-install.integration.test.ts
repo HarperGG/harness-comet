@@ -83,6 +83,38 @@ exit 0
   return script;
 }
 
+async function createFakeGlobalCometInstaller(sourceComet: string): Promise<{
+  binDir: string;
+  cometPath: string;
+  logPath: string;
+}> {
+  const binDir = await mkdtemp(path.join(tmpdir(), "fake-global-comet-install-"));
+  const cometPath = path.join(binDir, "comet");
+  const logPath = path.join(binDir, "npm-args.txt");
+  const npmPath = path.join(binDir, "npm");
+  await writeFile(
+    npmPath,
+    `#!/bin/sh
+set -eu
+printf '%s\\n' "$*" > ${shellQuote(logPath)}
+if [ "\${1:-}" != "install" ] || [ "\${2:-}" != "-g" ] || [ "\${3:-}" != "@rpamis/comet" ]; then
+  echo "unexpected npm args: $*" >&2
+  exit 1
+fi
+cp ${shellQuote(sourceComet)} ${shellQuote(cometPath)}
+chmod +x ${shellQuote(cometPath)}
+exit 0
+`,
+    "utf8"
+  );
+  await chmod(npmPath, 0o755);
+  return { binDir, cometPath, logPath };
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 describe("comet install integration", () => {
   it("requires an explicit target selection in non-interactive mode", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
@@ -97,6 +129,55 @@ describe("comet install integration", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("Specify --platform or --all-detected");
+  });
+
+  it("prompts to install the missing Comet CLI and continues after confirmation", async () => {
+    const installedComet = await createFakeComet("0.3.8");
+    const fakeInstall = await createFakeGlobalCometInstaller(installedComet);
+    const root = await mkdtemp(path.join(tmpdir(), "comet-install-missing-cli-"));
+    const env = {
+      ...process.env,
+      HARNESS_COMET_COMET_BIN: fakeInstall.cometPath,
+      PATH: `${fakeInstall.binDir}${path.delimiter}${process.env.PATH ?? ""}`
+    };
+
+    const install = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "install", "--platform", "codex"],
+      {
+        env,
+        input: "yes\n"
+      }
+    );
+
+    expect(install.exitCode).toBe(0);
+    expect(install.stdout).toContain("Comet CLI was not found.");
+    expect(install.stdout).toContain("@rpamis/comet >=0.3.8 <0.4.0");
+    expect(install.stdout).toContain("Yes, run npm install -g @rpamis/comet");
+    expect(install.stdout).toContain("TARGET codex writes=5");
+    await expect(readFile(fakeInstall.logPath, "utf8")).resolves.toBe("install -g @rpamis/comet\n");
+  });
+
+  it("shows manual installation instructions when the missing Comet CLI prompt is declined", async () => {
+    const missingRoot = await mkdtemp(path.join(tmpdir(), "missing-comet-bin-"));
+    process.env.HARNESS_COMET_COMET_BIN = path.join(missingRoot, "comet");
+    const root = await mkdtemp(path.join(tmpdir(), "comet-install-decline-cli-"));
+
+    const result = await execa(
+      "pnpm",
+      [...cli, "--root", root, "comet", "install", "--platform", "codex"],
+      {
+        input: "no\n",
+        reject: false
+      }
+    );
+
+    expect(result.exitCode).toBe(6);
+    expect(result.stdout).toContain("Comet CLI was not found.");
+    expect(result.stdout).toContain("No, show installation instructions");
+    expect(result.stdout).toContain("Install Comet CLI with:");
+    expect(result.stdout).toContain("npm install -g @rpamis/comet");
+    expect(result.stdout).not.toContain("TARGET codex");
   });
 
   it("supports dry-run without writing managed files", async () => {
