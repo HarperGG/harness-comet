@@ -1,82 +1,138 @@
 ---
 name: harness-comet-playwright-authoring
-description: Use when a user asks to create, update, review, or repair Playwright tests and Harness-Comet assets from a feature requirement, bug report, acceptance criteria, manual QA flow, or code change. The skill must study the existing project architecture, reuse local test conventions, produce a coverage plan before editing, create complete deterministic Playwright assets, and verify the result with Harness-Comet.
+description: Use only when the user explicitly invokes @harness-comet-playwright-authoring and immediately provides a concrete requirement. Generate complete, project-consistent Playwright tests and required Harness-Comet assets for that requirement. Never activate implicitly, never broaden the requested scope, and never return a partial or example-only implementation.
 ---
 
 # Harness-Comet Playwright Authoring
 
-## Purpose
+## Activation Contract
 
-Turn one concrete product requirement or regression into project-consistent, executable Playwright tests and Harness-Comet assets.
+This skill is **manual-invocation only**.
 
-The result must not be a generic example test. It must fit the repository's existing:
+Activate it only when the user's message explicitly contains:
 
-- application routes and startup model;
-- authentication strategy;
-- Playwright configuration;
-- fixtures and test extensions;
-- Page Objects and helpers;
-- API mocking style;
-- selector conventions;
-- Harness test directories and tags;
-- incident and evidence conventions;
-- lint, type-check, and CI commands.
+```text
+@harness-comet-playwright-authoring
+```
 
-## Use This Skill When
+and the invocation is followed by a concrete requirement, bug description, acceptance criterion, or user workflow to implement.
 
-Use this skill for requests such as:
+Valid example:
 
-- add Playwright coverage for a new feature;
-- convert acceptance criteria into tests;
-- automate a manual QA workflow;
-- create a regression test for a bug;
-- update existing tests after a behavior change;
-- generate fixtures, mocks, expected payloads, attachments, or incident assets;
-- repair an AI-generated Playwright test that does not satisfy Harness-Comet;
-- review whether existing tests fully cover a requirement.
+```text
+@harness-comet-playwright-authoring
+保存按钮点击后显示确认弹窗。确认后发送保存请求；取消后不得发送请求，并保持未保存状态。
+```
 
-Do not use this skill for unit tests, pure component tests, load tests, or production implementation unless they are necessary to make the Playwright test observable and the user permits the change.
+Do not activate this skill when:
 
-## Core Rules
+- the user only asks a general Playwright question;
+- the user asks what this skill does;
+- the user asks to review, explain, or discuss testing strategy without explicitly invoking the skill;
+- the user mentions Harness-Comet, Playwright, fixtures, mocks, reporters, or incidents in ordinary conversation;
+- the requirement is absent or too vague to identify a testable behavior;
+- another agent or instruction merely suggests this skill without the user's explicit invocation.
 
-1. Inspect before editing.
-2. Prefer existing project patterns over introducing new abstractions.
-3. Produce a compact coverage plan before writing files.
-4. Prefer updating an existing journey when the behavior belongs to it.
-5. Create a new journey only for a distinct business promise or regression risk.
-6. Every generated Harness test must include `@harness`.
-7. Do not use `page.waitForTimeout`.
-8. Do not access production URLs or production data.
-9. Use stable fixtures and deterministic mocks.
-10. Assert business outcomes, not only element visibility.
-11. Save workflows must assert the outgoing payload or persisted result.
-12. Negative workflows must prove the forbidden action did not occur.
-13. Reuse project helpers, fixtures, Page Objects, and selector conventions.
-14. Run deterministic validation after writing files.
-15. Do not declare success unless the generated test is collected and the requested verification passes.
+If the user invokes the skill but provides no concrete requirement, ask for exactly one concrete requirement. Do not inspect or modify the repository before that requirement is available.
 
-## Workflow
+## Single Responsibility
 
-### 1. Read the requirement
+This skill has one responsibility:
 
-Extract:
+> Given one explicit requirement, generate the complete Playwright test assets required to verify it in the current project's architecture and Harness-Comet conventions.
 
-- the user-visible behavior;
-- preconditions;
-- primary action;
-- expected outcome;
-- negative or cancellation behavior;
-- business risk if the behavior regresses;
-- explicit acceptance criteria;
-- relevant code or routes named by the user.
+This skill does not:
 
-Reduce broad requirements into a small number of durable business promises.
+- provide general Playwright education;
+- perform broad test-suite reviews;
+- redesign the project's test architecture;
+- create unrelated refactors;
+- add speculative coverage not required by the stated behavior;
+- modify production code unless a missing testability hook blocks the requested test and the user explicitly permits that change;
+- generate generic example code that is not integrated into the repository;
+- stop after producing only a plan, snippet, skeleton, TODO, or pseudo-code when implementation was requested.
 
-Do not generate one test for every sentence. Group assertions that belong to the same user workflow.
+## Scope Discipline
 
-### 2. Discover Harness-Comet and Playwright configuration
+Treat the user's requirement as the scope boundary.
 
-Run, when available:
+Generate only the assets necessary to verify:
+
+- the required preconditions;
+- the required user actions;
+- the required successful outcome;
+- explicitly stated negative, cancellation, permission, or error behavior;
+- necessary persistence, network, or state effects.
+
+Do not add unrelated cases such as accessibility, performance, multiple browsers, mobile layouts, localization, permissions, retries, or visual snapshots unless:
+
+1. they are explicitly part of the requirement; or
+2. the repository's existing Harness-Comet convention makes them mandatory.
+
+Do not omit an explicitly stated branch merely to keep the implementation short.
+
+## Definition of a Complete Result
+
+A generated result is complete only when it includes all applicable assets required by the repository, such as:
+
+- one or more executable `*.spec.ts` files;
+- updates to an existing spec when that is the correct architectural choice;
+- deterministic fixture or input data;
+- expected payload or expected result data;
+- route/network setup when external dependencies must be controlled;
+- use of existing project fixtures, Page Objects, helpers, and test extensions;
+- Harness-Comet tags and directory placement;
+- incident assets when the requirement explicitly identifies an escaped defect or incident;
+- structured evidence attachments when required by existing conventions;
+- validation and execution results.
+
+Do not create a file merely to satisfy a checklist. Reuse existing assets when they already represent the required state.
+
+## Required Workflow
+
+### 1. Parse the explicit requirement
+
+Extract only what the user stated or what is strictly implied by the stated behavior:
+
+- start state;
+- actor;
+- action;
+- expected visible result;
+- expected state, request, persistence, or navigation effect;
+- explicitly required negative paths;
+- named route, component, API, issue ID, or existing test;
+- acceptance criteria.
+
+Create a requirement checklist before editing.
+
+Example:
+
+```text
+Requirement checklist
+- Save opens a confirmation dialog.
+- Confirm sends exactly one save request.
+- The request payload matches the edited annotation.
+- Cancel sends no save request.
+- Cancel preserves the unsaved editor state.
+```
+
+Every checklist item must map to at least one test assertion.
+
+### 2. Inspect the current repository
+
+Before writing files, read the relevant project configuration and nearby implementation.
+
+Required inspection:
+
+```text
+package.json
+harness-comet.config.ts
+playwright.config.ts
+existing tests under the configured test directory
+relevant application route/component/API/state code
+```
+
+When available, run:
 
 ```bash
 pnpm exec harness-comet --json validate
@@ -84,286 +140,218 @@ pnpm exec harness-comet tests list
 pnpm exec playwright test --list
 ```
 
-Read:
-
-```text
-harness-comet.config.ts
-playwright.config.ts
-package.json
-```
-
-Identify:
-
-- Playwright test directory;
-- configured projects and browsers;
-- `baseURL` and `webServer`;
-- retries and timeouts;
-- reporters;
-- authentication/storage-state setup;
-- Harness results and incident directories;
-- required tags and validation rules.
-
-If a machine-readable Harness context command exists, prefer it:
+If supported, also run:
 
 ```bash
 pnpm exec harness-comet --json context
 ```
 
-Do not assume this command exists. Fall back to repository inspection.
+Inspect and reuse:
 
-### 3. Inspect the project test architecture
-
-Search the test directory before creating anything.
-
-Find:
-
-- tests nearest to the affected feature;
-- fixtures and custom `test.extend` definitions;
+- `baseURL` and `webServer`;
+- configured browser projects;
+- authentication or `storageState` setup;
+- custom fixtures and `test.extend`;
 - Page Objects;
-- mock helpers;
-- attachment helpers;
-- fixture JSON files;
-- test-data factories;
-- authentication setup;
-- route interception patterns;
-- selector patterns;
-- common tags;
-- incident layouts;
-- result and evidence conventions.
+- API helpers;
+- route interception conventions;
+- fixture factories and JSON data;
+- selector conventions;
+- existing tags;
+- reporters and Harness result paths;
+- lint, type-check, and test commands.
 
-Also inspect the relevant application code:
+Do not invent a selector, route, helper, fixture shape, or API contract before inspecting the repository.
 
-- route component;
-- form or dialog component;
-- API client;
-- state store;
-- serializer/deserializer;
-- feature flag;
-- `data-testid`, accessible role, label, or text hooks.
+### 3. Select the smallest correct asset change
 
-Do not invent selectors before checking the UI implementation.
+Choose one:
 
-### 4. Decide whether to update or create
+#### Update an existing test
 
-Prefer **update existing** when:
+Use when the existing journey already represents the same business promise and the requirement adds or changes a branch within it.
 
-- an existing journey already covers the same business promise;
-- the requirement adds a branch to an existing workflow;
-- the existing helper or fixture is the natural home for the change.
+#### Create a new journey
 
-Prefer **create new** when:
+Use when the requirement represents a distinct independently runnable business promise.
 
-- the requirement represents a distinct business promise;
-- the regression needs an independently runnable test;
-- the workflow has different setup, data, or risk;
-- adding it to an existing test would create a kitchen-sink scenario.
+#### Create an incident regression
 
-Prefer an **incident asset** when:
+Use only when the user explicitly identifies a bug, incident, issue ID, or escaped regression whose exact reproduction should be preserved.
 
-- the request is a real production or escaped defect;
-- there is an issue ID or external issue URL;
-- preserving the exact reproduction data is important.
+Do not create a new abstraction or folder when the existing project layout already has an appropriate location.
 
-### 5. Produce a test plan before editing
+### 4. Produce a bounded implementation plan
 
-Present a compact plan containing:
+Before editing, state:
 
 ```text
-Requirement
-Existing relevant assets
-Coverage decision: update | create | incident
-Test cases
-Fixtures and mocks
-Business assertions
+Requirement coverage
+Existing assets to reuse
 Files to create
 Files to update
+Test cases and assertions
+Fixture/network strategy
 Verification commands
-Risks or missing test hooks
 ```
 
-Each proposed test case must include:
+The plan must be specific, not generic.
 
-- title;
-- tags;
-- preconditions;
-- user actions;
-- business assertions;
-- network or persistence assertions;
-- expected evidence.
+Do not add optional suggestions or future improvements to the implementation scope.
 
-When the user explicitly asked for implementation, proceed after producing the plan. When the user asked only for a plan or review, do not edit files.
+When the user explicitly invoked this skill to generate assets, continue from the plan into implementation without requiring another confirmation unless a material ambiguity prevents a correct test.
 
-### 6. Design deterministic data and setup
+### 5. Build deterministic setup
 
-Prefer this order:
+Use the project's existing setup style.
 
-1. Existing local fixture or factory.
-2. Small explicit JSON fixture.
-3. Existing API mock helper.
-4. `page.route` or `browserContext.route` with exact request handling.
-5. Dedicated test environment when mocks would hide the behavior being tested.
+Preference order:
 
-Keep fixture data minimal and named after the business state, for example:
+1. existing fixture, factory, or test extension;
+2. existing Page Object or helper;
+3. small explicit fixture data;
+4. existing API/network helper;
+5. exact Playwright route interception;
+6. real test backend when the requirement specifically verifies backend integration.
 
-```text
-tests/data/annotation-draft-with-cuboid.json
-tests/data/expected-cuboid-save-payload.json
-```
+Network interception is optional, not a default requirement.
 
-Do not create giant catch-all fixtures.
+Use it only to control an external dependency or capture a request without replacing the core behavior being tested.
 
-Do not over-mock. Preserve the real layer that the requirement is meant to verify.
+Do not mock the behavior under test.
 
 Examples:
 
-- UI confirmation behavior: mock backend responses, keep real UI and state logic.
-- Request serialization regression: capture and assert the real outgoing request payload.
-- Navigation regression: use the real router and destination page.
-- Backend integration requirement: do not mock the backend call unless the test contract explicitly permits it.
+- To test a confirmation dialog, the backend response may be controlled while the real UI confirmation logic remains active.
+- To test request serialization, capture the real outgoing request payload; do not replace the serializer with expected data.
+- To test full frontend-backend integration, use the real test backend rather than intercepting the target API.
 
-### 7. Write resilient Playwright tests
+Use deterministic data. Do not depend on production data, random values, current dates, or shared mutable environment state unless the project already provides a deterministic abstraction.
 
-Locator preference:
+### 6. Write project-consistent Playwright tests
 
-1. `getByRole`
-2. `getByLabel`
-3. `getByPlaceholder`
-4. project-standard semantic helpers
-5. `getByTestId`
-6. CSS locator only when no stable semantic locator exists
+Use the project's existing import style, fixtures, helpers, and naming conventions.
 
-Do not use brittle selectors based on generated class names, DOM depth, or incidental styling.
+Locator preference unless the repository establishes another convention:
 
-Use Playwright auto-waiting and web-first assertions:
+1. `getByRole`;
+2. `getByLabel`;
+3. `getByPlaceholder`;
+4. project semantic helper or Page Object;
+5. `getByTestId`;
+6. stable CSS only when no semantic selector exists.
 
-```ts
-await expect(locator).toBeVisible();
-await expect(locator).toHaveText("Saved");
-await expect.poll(readBusinessState).toEqual(expected);
-```
+Never use generated class names, DOM-depth selectors, or incidental styling.
 
-Do not use:
+Use Playwright auto-waiting and web-first assertions.
+
+Never add:
 
 ```ts
-await page.waitForTimeout(...);
+page.waitForTimeout(...)
 ```
 
-For asynchronous application readiness, wait for an observable condition:
+Wait for observable readiness such as:
 
+- expected route;
 - visible ready state;
-- completed network response;
 - enabled control;
-- stable store/test bridge state;
-- expected URL;
-- expected rendered data.
+- completed request;
+- rendered application data;
+- stable project-provided test bridge state.
 
-### 8. Add Harness-Comet metadata
+### 7. Satisfy Harness-Comet requirements
 
-All generated Harness tests must include `@harness`.
+Every generated Harness test must include `@harness`.
 
 Example:
 
 ```ts
 test(
-  "Confirming save submits the expected annotation payload",
+  "confirming save submits the edited annotation",
   {
-    tag: ["@harness", "@annotation", "@save", "@critical"]
+    tag: ["@harness", "@annotation", "@save"]
   },
   async ({ page }, testInfo) => {
-    // ...
+    // complete test implementation
   }
 );
 ```
 
-Use existing project tags before inventing new ones.
+Reuse existing domain tags before creating new tags.
 
-Recommended classifications:
+Use `@critical`, `@smoke`, or `@incident` only when justified by the requirement or existing project convention.
 
-- `@smoke` for a fast representative path;
-- `@critical` for a release-blocking business promise;
-- `@incident` for escaped regressions;
-- domain tags such as `@annotation`, `@canvas`, `@save`.
+Preserve existing Harness-Comet reporter configuration and result generation. Do not replace or remove configured reporters.
 
-Do not tag every generated test as `@critical`.
+Place assets in the existing configured locations for:
 
-### 9. Assert complete business behavior
+- journeys;
+- incidents;
+- test data;
+- support helpers;
+- expected results;
+- evidence.
 
-A good test usually contains three assertion layers.
+### 8. Implement complete assertions
 
-#### User-visible result
+Map every requirement checklist item to a concrete assertion.
+
+Use all applicable assertion layers.
+
+#### Visible behavior
 
 Examples:
 
-- success status is displayed;
-- dialog closes or remains open as required;
+- dialog appears;
+- success state is displayed;
+- error state is accessible;
 - route changes;
-- form stays dirty after cancellation;
-- error message is accessible.
+- editor remains dirty;
+- control becomes enabled or disabled.
 
-#### Data or integration result
+#### State or integration behavior
 
 Examples:
 
 - request is sent exactly once;
 - request is not sent;
-- payload matches an expected fixture;
-- persisted response is rendered;
-- expected state transition occurs.
+- request payload matches expected data;
+- persisted result is rendered;
+- state transition matches the requirement;
+- navigation reaches the expected destination.
 
 #### Evidence
 
-Attach valuable structured evidence:
+Attach structured evidence only when it is useful or required by project convention:
 
 ```ts
-await testInfo.attach("saved-payload", {
-  body: JSON.stringify(capturedPayload, null, 2),
+await testInfo.attach("save-request", {
+  body: JSON.stringify(payload, null, 2),
   contentType: "application/json"
 });
 ```
 
-Do not attach secrets, access tokens, or unnecessary large payloads.
+Never include secrets, tokens, credentials, or unrelated large data.
 
-### 10. Handle negative behavior explicitly
+### 9. Prove negative behavior
 
-For cancellation or rejection flows, prove the forbidden effect did not happen.
+When the requirement says something must not happen, directly prove it did not happen.
 
-Example:
+For example, cancellation is not fully tested by asserting that a dialog closes. Also verify that:
 
-```ts
-let requestCount = 0;
+- no save request was sent;
+- no navigation occurred, when applicable;
+- no persisted state changed;
+- required unsaved state remains.
 
-await page.route("**/api/annotations", async route => {
-  requestCount += 1;
-  await route.fulfill({ status: 200, body: "{}" });
-});
+Do not replace explicit negative verification with a weak visibility-only assertion.
 
-await page.getByRole("button", { name: "Cancel" }).click();
+### 10. Validate the produced assets
 
-expect(requestCount).toBe(0);
-await expect(page.getByTestId("editor-dirty-state")).toHaveText("Unsaved");
-```
+Run all applicable deterministic checks.
 
-Do not treat “dialog disappeared” as sufficient proof that no request was sent.
-
-### 11. Create incident assets when appropriate
-
-When the request is a regression and the CLI supports incident creation, prefer:
-
-```bash
-pnpm exec harness-comet create incident <incident-id> \
-  --title "<title>" \
-  --issue-url "<url>"
-```
-
-Then place exact reproduction input and expected output in the generated incident structure.
-
-Do not fabricate an issue URL.
-
-### 12. Validate generated assets
-
-Run the narrowest useful checks first.
-
-Required checks:
+Required:
 
 ```bash
 pnpm exec harness-comet validate
@@ -371,20 +359,20 @@ pnpm exec harness-comet tests list
 pnpm exec playwright test --list
 ```
 
-Run the changed test:
+Run every created or materially changed test file:
 
 ```bash
 pnpm exec harness-comet run -- <changed-test-file>
 ```
 
-When available, also run project checks:
+When the repository provides them, also run:
 
 ```bash
 pnpm exec eslint <changed-files>
 pnpm exec tsc --noEmit
 ```
 
-If the repository provides a dedicated authoring verifier, use it:
+When a dedicated command exists, use:
 
 ```bash
 pnpm exec harness-comet authoring verify \
@@ -392,134 +380,93 @@ pnpm exec harness-comet authoring verify \
   --run
 ```
 
-Do not assume this command exists.
+Do not claim completion when the files were not collected by Playwright.
 
-### 13. Repair failures using evidence
+Do not claim a passing result when execution did not run or failed.
 
-When a generated test fails:
+### 11. Repair only the generated scope
 
-1. Read the Playwright error and call log.
-2. Read `error-context.md`.
-3. Inspect screenshot, video, or trace when present.
-4. Check request interception patterns.
-5. Check whether the application reached the intended route and state.
-6. Check selectors against the current implementation.
-7. Fix the smallest incorrect assumption.
-8. Re-run only the target test.
-9. Re-run Harness validation.
+If validation or the target test fails:
 
-Do not weaken assertions merely to make the test pass.
+1. inspect the error and Playwright call log;
+2. inspect `error-context.md`, screenshots, trace, or request logs when available;
+3. identify the smallest incorrect assumption;
+4. repair only the files within the requirement scope;
+5. rerun the target test;
+6. rerun Harness-Comet validation.
 
-Do not add arbitrary sleeps.
+Do not weaken a required assertion to force a pass.
 
-Do not modify production behavior unless the requirement exposes a missing testability hook and the user permits that change.
+Do not add sleeps.
 
-## Output Contract
+Do not expand into unrelated production refactors.
 
-After implementation, report:
+## Required Final Report
 
-### Coverage
+The final response must be complete and factual.
 
-- requirement covered;
-- test cases added or updated;
-- important negative paths;
-- anything intentionally not covered.
+Use this structure:
 
-### Files
+### Requirement coverage
 
-- created files;
-- updated files;
-- reused helpers and fixtures.
+List every original requirement and the test assertion or case that covers it.
 
-### Verification
+### Assets created or updated
 
-- commands executed;
-- collected test count;
-- pass/fail result;
-- location of reports and structured Harness results.
+List exact repository paths and their purpose.
 
-### Remaining risks
+### Architecture reused
 
-- environment dependencies;
-- missing stable selectors;
-- missing test bridge;
-- behavior that still requires manual review.
+List existing fixtures, helpers, Page Objects, authentication setup, selectors, or test conventions that were reused.
 
-## Quality Gate
+### Verification results
 
-Do not mark the task complete unless all applicable statements are true:
+List exact commands executed and their actual results:
 
-- [ ] The test maps to a concrete requirement or regression.
-- [ ] Existing test architecture was inspected.
-- [ ] Existing helpers and fixtures were reused where appropriate.
-- [ ] Every Harness test includes `@harness`.
+- Harness-Comet validation;
+- Playwright collection;
+- target test execution;
+- lint/type-check when run;
+- generated report/result locations.
+
+### Not completed
+
+List any requirement that could not be implemented or executed, with the exact reason.
+
+Do not include broad future recommendations, optional enhancements, or unrelated test ideas unless the user requests them.
+
+## Completion Gate
+
+Do not mark the task complete unless every applicable condition is satisfied:
+
+- [ ] The skill was explicitly invoked by the user.
+- [ ] A concrete requirement followed the invocation.
+- [ ] Every stated acceptance criterion appears in the requirement checklist.
+- [ ] Existing Playwright and Harness-Comet architecture was inspected.
+- [ ] The smallest correct existing asset boundary was selected.
+- [ ] Existing helpers, fixtures, Page Objects, and selectors were reused where appropriate.
+- [ ] Every generated Harness test includes `@harness`.
 - [ ] No `page.waitForTimeout` was added.
-- [ ] Selectors are stable and project-consistent.
+- [ ] No production URL or production data was used.
 - [ ] Test data is deterministic.
-- [ ] The primary business outcome is asserted.
-- [ ] Save/persistence behavior asserts payload or persisted result.
-- [ ] Negative behavior proves the forbidden side effect did not occur.
-- [ ] The test is collected by Playwright.
+- [ ] Every checklist item maps to an explicit assertion.
+- [ ] Persistence or save behavior verifies payload or persisted result when applicable.
+- [ ] Negative requirements prove the forbidden effect did not occur.
+- [ ] Existing reporters and Harness result generation remain intact.
+- [ ] Every changed test is collected by Playwright.
 - [ ] Harness-Comet validation passes.
-- [ ] The target test was run, unless the environment made execution impossible.
-- [ ] Any execution limitation is stated honestly.
+- [ ] Every created or materially changed test was executed unless execution was impossible.
+- [ ] Any failed or impossible verification is reported honestly.
 
-## Common Failure Modes
+## Prohibited Outputs
 
-### Generic generated test
+Never return only:
 
-Bad:
-
-- creates a new isolated HTML page unrelated to the application;
-- uses invented selectors;
-- verifies only that a button exists.
-
-Good:
-
-- uses the real application route;
-- follows existing fixture and helper conventions;
-- asserts the actual business outcome.
-
-### Over-mocking
-
-Bad:
-
-- mocks the serializer while claiming to test serialization;
-- mocks all state transitions and only tests HTML wiring.
-
-Good:
-
-- mocks external instability;
-- keeps the target behavior real.
-
-### Kitchen-sink scenario
-
-Bad:
-
-- one test covers create, edit, save, delete, export, reload, and permissions.
-
-Good:
-
-- one test preserves one business promise with a small number of meaningful assertions.
-
-### Weak negative test
-
-Bad:
-
-- clicks Cancel and asserts the dialog closes.
-
-Good:
-
-- asserts the save request was not sent and unsaved state remains.
-
-### Passing by weakening
-
-Bad:
-
-- removes payload assertion after mismatch;
-- increases timeout without understanding readiness;
-- replaces exact business assertion with `toBeVisible`.
-
-Good:
-
-- diagnoses the mismatch and fixes setup, implementation, or expected fixture.
+- a generic Playwright example;
+- a test skeleton;
+- pseudo-code;
+- a list of suggested cases without implementation;
+- TODO placeholders;
+- invented selectors or endpoints;
+- a partial happy-path test when negative behavior was explicitly required;
+- a summary claiming success without validation evidence.
