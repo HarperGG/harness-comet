@@ -179,25 +179,74 @@ pnpm exec harness-comet impact show \
 
 ## Comet 集成
 
-检查：
+Harness-Comet 依赖 `@rpamis/comet` CLI，支持的版本范围为：
 
-```bash
-pnpm exec harness-comet comet doctor
+```text
+>=0.3.8 <0.4.0
 ```
 
-推荐使用交互式安装：
+### 首次接入
+
+推荐直接运行交互式安装：
 
 ```bash
 pnpm exec harness-comet comet install
 ```
 
-安装过程中会提示你选择目标平台、是否初始化 Harness，以及需要写入哪些集成内容。对于人工首次接入，建议保留这些提示，不要默认加 `--yes`。
+如果当前终端中找不到 `comet` 命令，Harness-Comet 会提示是否执行：
 
-`--yes` 会直接接受非交互默认值，可能生成或安装更多默认内容，只建议在 CI、自动化脚本，或你已经明确了解默认选择时使用：
+```bash
+npm install -g @rpamis/comet
+```
+
+确认后会先全局安装 Comet CLI，再继续完成 Comet 项目初始化和 Harness-Comet 集成。安装过程中还会提示你选择目标平台、是否初始化 Harness，以及需要写入哪些集成内容。
+
+对于人工首次接入，建议保留交互提示，不要默认添加 `--yes`。
+
+### 手动安装 Comet CLI
+
+也可以先自行安装并验证：
+
+```bash
+npm install -g @rpamis/comet
+comet --version
+```
+
+确认版本满足要求后，再运行：
+
+```bash
+pnpm exec harness-comet comet install
+```
+
+### 非交互模式
+
+`--yes` 会接受非交互默认值。如果 Comet CLI 尚未安装，它也会直接执行全局安装命令，然后继续初始化和集成：
 
 ```bash
 pnpm exec harness-comet comet install --yes
 ```
+
+该模式会修改全局 npm 环境，并可能生成或安装更多默认内容，只建议用于：
+
+- CI 或自动化脚本；
+- 批量初始化；
+- 已经明确了解默认选项的场景。
+
+如果需要明确指定目标平台，可使用：
+
+```bash
+pnpm exec harness-comet comet install \
+  --platform codex \
+  --yes
+```
+
+### 检查状态
+
+```bash
+pnpm exec harness-comet comet doctor
+```
+
+`doctor` 会检查 Comet CLI 是否存在、版本是否兼容，以及目标平台所需的 Comet skill 文件是否完整。
 
 一次变更的推荐流程：
 
