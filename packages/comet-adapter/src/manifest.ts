@@ -5,7 +5,8 @@ import { SUPPORTED_COMET_RANGE } from "./compatibility/version.js";
 import type {
   AgentTargetManifestRecord,
   HarnessCometManifestV1,
-  ManagedFileRecord
+  ManagedFileRecord,
+  ManagedFileStrategy
 } from "./types.js";
 
 export const HARNESS_COMET_VERSION = "0.1.0";
@@ -63,13 +64,17 @@ export function buildManagedFileRecord(
   relativePath: string,
   absolutePath: string,
   content: string,
-  executable: boolean
+  executable: boolean,
+  strategy?: ManagedFileStrategy,
+  backupPath?: string
 ): ManagedFileRecord {
   return {
     relativePath,
     absolutePath,
     sha256: sha256(content),
-    executable
+    executable,
+    strategy,
+    backupPath
   };
 }
 
