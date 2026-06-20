@@ -12,6 +12,8 @@ import {
 import {
   HARNESS_COMET_MANIFEST_PATH,
   buildManagedFileRecord,
+  readManifest,
+  sha256,
   writeFileAtomic,
   writeManifest
 } from "./manifest.js";
@@ -22,13 +24,17 @@ import type {
   CometLanguage,
   CometInstallFilePlan,
   CometInstallReport,
-  CometInstallTargetResult
+  CometInstallTargetResult,
+  ManagedFileRecord,
+  ManagedFileStrategy
 } from "./types.js";
 
 interface PlannedManagedFile extends CometInstallFilePlan {
   content: string;
   mode: number;
   backupSource?: string;
+  backupPath?: string;
+  strategy: ManagedFileStrategy;
 }
 
 interface InstallTargetPlan {
@@ -53,6 +59,7 @@ export async function installCometIntegration(
   const comet = await detectCometCli(options.projectRoot);
   const projectMode = await resolveHarnessCometProjectMode(options.projectRoot, options.projectMode);
   const manifestPath = path.join(options.projectRoot, HARNESS_COMET_MANIFEST_PATH);
+  const existingManifest = await readManifest(options.projectRoot);
   const requested = new Set(options.platformIds ?? []);
   const hasSelection = requested.size > 0 || Boolean(options.allDetected);
 
@@ -93,7 +100,8 @@ export async function installCometIntegration(
         target.skillRoot,
         Boolean(options.force),
         Boolean(options.dryRun),
-        projectMode
+        projectMode,
+        existingManifest?.targets.find((item) => item.platformId === target.platformId)
       )
     )
   );
@@ -115,10 +123,14 @@ export async function installCometIntegration(
             "backups",
             new Date().toISOString().replace(/[:.]/g, "-")
           );
-          const relativeBackupPath = path.join(target.result.platformId, plan.relativePath);
-          const fullBackupPath = path.join(backupRoot, relativeBackupPath);
+          const fullBackupPath = path.join(backupRoot, target.result.platformId, plan.relativePath);
           await fs.mkdir(path.dirname(fullBackupPath), { recursive: true });
           await fs.copyFile(plan.backupSource, fullBackupPath);
+          plan.backupPath = fullBackupPath;
+          const record = target.manifest.managedFiles.find(
+            (item) => item.relativePath === plan.relativePath
+          );
+          if (record) record.backupPath = fullBackupPath;
           backups += 1;
         }
         await writeFileAtomic(plan.absolutePath, plan.content, plan.mode);
@@ -205,12 +217,13 @@ async function buildInstallPlan(
   skillRoot: string,
   force: boolean,
   dryRun: boolean,
-  projectMode: "runtime" | "playwright"
+  projectMode: "runtime" | "playwright",
+  previousTarget?: AgentTargetManifestRecord
 ): Promise<InstallTargetPlan> {
   if (!dryRun) await validateRequiredPhaseSkills(skillRoot);
   const language = await detectCometLanguage(projectRoot, skillRoot);
   const filePlans: PlannedManagedFile[] = [];
-  const managedFiles = [];
+  const managedFiles: ManagedFileRecord[] = [];
 
   if (projectMode === "playwright") {
     const files: PlaywrightManagedSkillFile[] = [
@@ -223,6 +236,9 @@ async function buildInstallPlan(
       const requiredExisting = (PLAYWRIGHT_COMET_REPLACEMENT_FILES as readonly string[]).includes(
         relativePath
       );
+      const previous = previousTarget?.managedFiles.find(
+        (item) => item.relativePath === relativePath
+      );
       const plan = await planReplacementFile({
         relativePath,
         absolutePath,
@@ -230,10 +246,20 @@ async function buildInstallPlan(
         mode: 0o644,
         force,
         dryRun,
-        requiredExisting
+        requiredExisting,
+        previous
       });
       filePlans.push(plan);
-      managedFiles.push(buildManagedFileRecord(relativePath, absolutePath, content, false));
+      managedFiles.push(
+        buildManagedFileRecord(
+          relativePath,
+          absolutePath,
+          content,
+          false,
+          plan.strategy,
+          plan.backupPath
+        )
+      );
     }
   } else {
     for (const relativePath of PATCHED_SKILL_FILES) {
@@ -247,7 +273,9 @@ async function buildInstallPlan(
         language
       );
       filePlans.push(plan);
-      managedFiles.push(buildManagedFileRecord(relativePath, absolutePath, plan.content, false));
+      managedFiles.push(
+        buildManagedFileRecord(relativePath, absolutePath, plan.content, false, "patch")
+      );
     }
   }
 
@@ -255,7 +283,9 @@ async function buildInstallPlan(
     result: {
       platformId,
       skillRoot,
-      writes: filePlans.map(({ content: _content, mode: _mode, backupSource: _backup, ...plan }) => plan)
+      writes: filePlans.map(
+        ({ content: _content, mode: _mode, backupSource: _backup, backupPath: _path, strategy: _strategy, ...plan }) => plan
+      )
     },
     manifest: {
       platformId,
@@ -335,15 +365,19 @@ async function planRuntimePatchedFile(
   try {
     const current = await fs.readFile(absolutePath, "utf8");
     const content = applyManagedPatch(relativePath, current, language, "runtime");
-    if (current === content) return noopPlan(relativePath, absolutePath, content, mode);
-    if (!force && hasManagedPatch(relativePath, current)) {
-      throw managedConflict(absolutePath);
-    }
-    return updatePlan(relativePath, absolutePath, content, mode);
+    if (current === content) return noopPlan(relativePath, absolutePath, content, mode, "patch");
+    if (!force && hasManagedPatch(relativePath, current)) throw managedConflict(absolutePath);
+    return updatePlan(relativePath, absolutePath, content, mode, "patch");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     if (!dryRun) throw requiredFileMissing(absolutePath);
-    return createPlan(relativePath, absolutePath, applyManagedPatch(relativePath, "", language, "runtime"), mode);
+    return createPlan(
+      relativePath,
+      absolutePath,
+      applyManagedPatch(relativePath, "", language, "runtime"),
+      mode,
+      "patch"
+    );
   }
 }
 
@@ -355,15 +389,29 @@ async function planReplacementFile(options: {
   force: boolean;
   dryRun: boolean;
   requiredExisting: boolean;
+  previous?: ManagedFileRecord;
 }): Promise<PlannedManagedFile> {
   try {
     const current = await fs.readFile(options.absolutePath, "utf8");
+    const strategy: ManagedFileStrategy = options.requiredExisting ? "replace" : "create";
     if (current === options.content) {
-      return noopPlan(options.relativePath, options.absolutePath, options.content, options.mode);
+      return noopPlan(
+        options.relativePath,
+        options.absolutePath,
+        options.content,
+        options.mode,
+        options.previous?.strategy ?? strategy,
+        options.previous?.backupPath
+      );
     }
-    const managed = current.includes("Managed by @hapergg/harness-comet");
-    if (!options.force && managed) throw managedConflict(options.absolutePath);
-    if (!options.force && !options.requiredExisting && !managed) {
+
+    const previousMatches = Boolean(
+      options.previous && sha256(current) === options.previous.sha256
+    );
+    if (options.previous && !previousMatches && !options.force) {
+      throw managedConflict(options.absolutePath);
+    }
+    if (!options.previous && !options.requiredExisting && !options.force) {
       throw new HarnessError({
         code: "COMET_SHARED_SKILL_CONFLICT",
         category: "config",
@@ -371,11 +419,23 @@ async function planReplacementFile(options: {
         hint: "Use --force to back up and replace the existing skill."
       });
     }
-    return updatePlan(options.relativePath, options.absolutePath, options.content, options.mode);
+
+    const effectiveStrategy: ManagedFileStrategy = options.requiredExisting || !options.previous
+      ? "replace"
+      : options.previous.strategy ?? "replace";
+    return updatePlan(
+      options.relativePath,
+      options.absolutePath,
+      options.content,
+      options.mode,
+      effectiveStrategy,
+      options.previous?.backupPath,
+      options.previous?.backupPath ? undefined : options.absolutePath
+    );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     if (options.requiredExisting && !options.dryRun) throw requiredFileMissing(options.absolutePath);
-    return createPlan(options.relativePath, options.absolutePath, options.content, options.mode);
+    return createPlan(options.relativePath, options.absolutePath, options.content, options.mode, "create");
   }
 }
 
@@ -383,25 +443,48 @@ function noopPlan(
   relativePath: string,
   absolutePath: string,
   content: string,
-  mode: number
+  mode: number,
+  strategy: ManagedFileStrategy,
+  backupPath?: string
 ): PlannedManagedFile {
-  return { relativePath, absolutePath, action: "noop", executable: mode === 0o755, content, mode };
+  return {
+    relativePath,
+    absolutePath,
+    action: "noop",
+    executable: mode === 0o755,
+    content,
+    mode,
+    strategy,
+    backupPath
+  };
 }
 
 function createPlan(
   relativePath: string,
   absolutePath: string,
   content: string,
-  mode: number
+  mode: number,
+  strategy: ManagedFileStrategy
 ): PlannedManagedFile {
-  return { relativePath, absolutePath, action: "create", executable: mode === 0o755, content, mode };
+  return {
+    relativePath,
+    absolutePath,
+    action: "create",
+    executable: mode === 0o755,
+    content,
+    mode,
+    strategy
+  };
 }
 
 function updatePlan(
   relativePath: string,
   absolutePath: string,
   content: string,
-  mode: number
+  mode: number,
+  strategy: ManagedFileStrategy,
+  backupPath?: string,
+  backupSource: string | undefined = absolutePath
 ): PlannedManagedFile {
   return {
     relativePath,
@@ -410,7 +493,9 @@ function updatePlan(
     executable: mode === 0o755,
     content,
     mode,
-    backupSource: absolutePath
+    strategy,
+    backupPath,
+    backupSource
   };
 }
 
@@ -418,8 +503,8 @@ function managedConflict(absolutePath: string): HarnessError {
   return new HarnessError({
     code: "COMET_MANAGED_FILE_CONFLICT",
     category: "config",
-    message: `Managed skill differs from the packaged version: ${absolutePath}`,
-    hint: "Use --force to back up and replace the locally modified or older managed skill."
+    message: `Managed skill has local changes: ${absolutePath}`,
+    hint: "Use --force to back up and replace the locally modified skill."
   });
 }
 

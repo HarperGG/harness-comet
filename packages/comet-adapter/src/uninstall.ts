@@ -1,15 +1,14 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import { HarnessError } from "@hapergg/harness-comet-core";
 import { removeManagedPatch } from "./assets.js";
 import { detectCometCli } from "./discovery/comet-cli.js";
-import {
-  readManifest,
-  replaceManifest
-} from "./manifest.js";
+import { readManifest, replaceManifest, sha256 } from "./manifest.js";
 import type {
   AgentTargetManifestRecord,
   CometUninstallReport,
-  CometUninstallTargetReport
+  CometUninstallTargetReport,
+  ManagedFileRecord
 } from "./types.js";
 
 export interface UninstallCometOptions {
@@ -45,11 +44,16 @@ export async function uninstallCometIntegration(
   }
 
   const reports: CometUninstallTargetReport[] = [];
+  const successfullyUninstalled = new Set<string>();
   for (const target of selected) {
-    reports.push(await uninstallTarget(target));
+    const report = await uninstallTarget(target);
+    reports.push(report);
+    if (report.kept.length === 0) successfullyUninstalled.add(target.platformId);
   }
 
-  const remaining = manifest.targets.filter((target) => !selected.some((item) => item.platformId === target.platformId));
+  const remaining = manifest.targets.filter(
+    (target) => !successfullyUninstalled.has(target.platformId)
+  );
   const manifestPath = await replaceManifest(options.projectRoot, remaining);
 
   return {
@@ -67,8 +71,11 @@ async function uninstallTarget(
   const kept: string[] = [];
 
   for (const managedFile of target.managedFiles) {
-    try {
-      const current = await fs.readFile(managedFile.absolutePath, "utf8");
+    const current = await readOptionalFile(managedFile.absolutePath);
+    const strategy = managedFile.strategy ?? "patch";
+
+    if (strategy === "patch") {
+      if (current === undefined) continue;
       const next = removeManagedPatch(managedFile.relativePath, current);
       if (next !== current) {
         await fs.writeFile(managedFile.absolutePath, next, "utf8");
@@ -76,9 +83,37 @@ async function uninstallTarget(
       } else {
         kept.push(managedFile.relativePath);
       }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      continue;
     }
+
+    if (strategy === "create") {
+      if (current === undefined) {
+        removed.push(managedFile.relativePath);
+        continue;
+      }
+      if (sha256(current) !== managedFile.sha256) {
+        kept.push(managedFile.relativePath);
+        continue;
+      }
+      await fs.rm(managedFile.absolutePath, { force: true });
+      await removeEmptyParentDirectory(managedFile.absolutePath, target.skillRoot);
+      removed.push(managedFile.relativePath);
+      continue;
+    }
+
+    if (current !== undefined && sha256(current) !== managedFile.sha256) {
+      kept.push(managedFile.relativePath);
+      continue;
+    }
+
+    if (!(await backupExists(managedFile))) {
+      kept.push(managedFile.relativePath);
+      continue;
+    }
+
+    await fs.mkdir(path.dirname(managedFile.absolutePath), { recursive: true });
+    await fs.copyFile(managedFile.backupPath!, managedFile.absolutePath);
+    removed.push(managedFile.relativePath);
   }
 
   return {
@@ -87,4 +122,35 @@ async function uninstallTarget(
     removed,
     kept
   };
+}
+
+async function readOptionalFile(filePath: string): Promise<string | undefined> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function backupExists(managedFile: ManagedFileRecord): Promise<boolean> {
+  if (!managedFile.backupPath) return false;
+  try {
+    await fs.access(managedFile.backupPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function removeEmptyParentDirectory(filePath: string, skillRoot: string): Promise<void> {
+  const parent = path.dirname(filePath);
+  if (path.resolve(parent) === path.resolve(skillRoot)) return;
+  try {
+    const entries = await fs.readdir(parent);
+    if (entries.length === 0) await fs.rmdir(parent);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
 }
