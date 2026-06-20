@@ -17,9 +17,7 @@ export const PLAYWRIGHT_SHARED_SKILL_FILES = [
   "playwright-authoring-decision/SKILL.md",
   "playwright-authoring-plan/SKILL.md",
   "playwright-authoring-build/SKILL.md",
-  "playwright-authoring-verify/SKILL.md",
-  "playwright-authoring-standalone-adapter/SKILL.md",
-  "playwright-authoring/SKILL.md"
+  "playwright-authoring-verify/SKILL.md"
 ] as const;
 
 export type PlaywrightManagedSkillFile =
@@ -34,12 +32,6 @@ export function isPlaywrightCometReplacementFile(
   relativePath: string
 ): relativePath is (typeof PLAYWRIGHT_COMET_REPLACEMENT_FILES)[number] {
   return (PLAYWRIGHT_COMET_REPLACEMENT_FILES as readonly string[]).includes(relativePath);
-}
-
-export function isPlaywrightSharedSkillFile(
-  relativePath: string
-): relativePath is (typeof PLAYWRIGHT_SHARED_SKILL_FILES)[number] {
-  return (PLAYWRIGHT_SHARED_SKILL_FILES as readonly string[]).includes(relativePath);
 }
 
 export async function readPlaywrightManagedSkillAsset(
