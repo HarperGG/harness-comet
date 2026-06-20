@@ -36,11 +36,15 @@ export interface CometDiscoveryReport {
   targets: SkillRootStatus[];
 }
 
+export type ManagedFileStrategy = "patch" | "replace" | "create";
+
 export interface ManagedFileRecord {
   relativePath: string;
   absolutePath: string;
   sha256: string;
   executable: boolean;
+  strategy?: ManagedFileStrategy;
+  backupPath?: string;
 }
 
 export type CometLanguage = "en" | "zh";
