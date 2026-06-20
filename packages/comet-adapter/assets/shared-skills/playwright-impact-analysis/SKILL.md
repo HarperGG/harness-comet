@@ -37,7 +37,6 @@ Run when available:
 pnpm exec harness-comet --json validate
 pnpm exec harness-comet tests list
 pnpm exec playwright test --list
-pnpm exec harness-comet --json context
 ```
 
 Search existing `*.spec.*` files by business behavior, route, production implementation, API, fixture, Page Object, helper, tag, incident ID, imports, and changed source dependencies.
