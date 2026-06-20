@@ -21,4 +21,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm exec vitest run test/comet-install.integration.test.ts test/comet-uninstall.integration.test.ts
+      - name: Install integration
+        run: pnpm exec vitest run test/comet-install.integration.test.ts --reporter=verbose
+      - name: Uninstall integration
+        run: pnpm exec vitest run test/comet-uninstall.integration.test.ts --reporter=verbose
