@@ -22,7 +22,7 @@ describe("managed comet-archive assets", () => {
       "Lifecycle Closed Loop",
       "archive-check --change",
       "receipt, results, report, and fingerprints",
-      "do not run `\"$COMET_BASH\" `\"$COMET_GUARD\""
+      "The active directory no longer exists"
     ]) {
       expect(skill).toContain(marker);
     }
