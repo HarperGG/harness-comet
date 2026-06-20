@@ -243,50 +243,86 @@ async function runCometPlaywrightOpenHook(
   change: string
 ): Promise<CometHookReport> {
   const changeRoot = await ensureChangeRoot(projectRoot, change);
+  const proposalPath = path.join(changeRoot, "proposal.md");
   const tasksPath = path.join(changeRoot, "tasks.md");
-  const tasks = await readRequiredFile(tasksPath, "COMET_OPEN_TASKS_MISSING", "Open tasks doc not found");
-  const { path: designPath, impact } = await readPlaywrightHarnessImpact(projectRoot, change);
+  const proposal = await readRequiredFile(
+    proposalPath,
+    "COMET_OPEN_PROPOSAL_MISSING",
+    "Open proposal doc not found"
+  );
+  const tasks = await readRequiredFile(
+    tasksPath,
+    "COMET_OPEN_TASKS_MISSING",
+    "Open tasks doc not found"
+  );
 
-  if (!impact.reason) {
+  const impact = extractSection(proposal, "Playwright Impact Analysis");
+  if (!impact.trim()) {
     throw new HarnessError({
-      code: "COMET_OPEN_REASON_MISSING",
+      code: "COMET_OPEN_PLAYWRIGHT_IMPACT_MISSING",
       category: "config",
-      message: `Harness Playwright Impact reason is required for ${change}`,
-      path: designPath
+      message: `Playwright Impact Analysis is required for ${change}`,
+      path: proposalPath
     });
   }
-  if (!["none", "verify-existing", "update-or-create"].includes(impact.action)) {
+
+  const decision = extractSection(proposal, "Playwright Authoring Decision");
+  const enabledMatch = decision.match(/\benabled:\s*(true|false)\b/i);
+  if (!enabledMatch) {
     throw new HarnessError({
       code: "COMET_OPEN_DECISIONS_MISSING",
       category: "config",
-      message: `Harness Playwright Impact action is required for ${change}`,
-      path: designPath
+      message: `Playwright Authoring Decision enabled state is required for ${change}`,
+      path: proposalPath
     });
   }
-  if (!["user", "agent"].includes(impact.confirmedBy)) {
+
+  const confirmedByMatch = decision.match(/\bconfirmedBy:\s*([a-z-]+)\b/i);
+  if (confirmedByMatch?.[1]?.toLowerCase() !== "user") {
     throw new HarnessError({
       code: "COMET_OPEN_CONFIRMED_BY_INVALID",
       category: "config",
-      message: `Harness Playwright Impact confirmed by is required for ${change}`,
-      path: designPath
+      message: `Playwright Authoring Decision must be confirmed by the user for ${change}`,
+      path: proposalPath
     });
   }
-  if (impact.confirmedAt && Number.isNaN(Date.parse(impact.confirmedAt))) {
+
+  const allowedOperations = new Set(["verify", "update", "create", "retire", "ignore"]);
+  const operationMatches = [...decision.matchAll(/^\s*operation:\s*([a-z-]+)\s*$/gim)];
+  for (const match of operationMatches) {
+    const operation = match[1].toLowerCase();
+    if (!allowedOperations.has(operation)) {
+      throw new HarnessError({
+        code: "COMET_OPEN_DECISION_OPERATION_INVALID",
+        category: "config",
+        message: `Unsupported Playwright target operation: ${operation} for ${change}`,
+        path: proposalPath
+      });
+    }
+  }
+
+  const enabled = enabledMatch[1].toLowerCase() === "true";
+  const activeOperations = operationMatches
+    .map((match) => match[1].toLowerCase())
+    .filter((operation) => operation !== "ignore");
+  if (enabled && activeOperations.length === 0) {
     throw new HarnessError({
-      code: "COMET_OPEN_CONFIRMED_AT_INVALID",
+      code: "COMET_OPEN_DECISIONS_MISSING",
       category: "config",
-      message: `Harness Playwright Impact confirmed at must be an ISO timestamp for ${change}`,
-      path: designPath
+      message: `Enabled Playwright authoring requires at least one non-ignored target for ${change}`,
+      path: proposalPath
     });
   }
-  if (!/harness/i.test(tasks)) {
+
+  if (enabled && !/playwright/i.test(tasks)) {
     throw new HarnessError({
       code: "COMET_OPEN_TASKS_INVALID",
       category: "config",
-      message: `Harness tasks are required in tasks.md for ${change}`,
+      message: `Playwright planning, implementation, and verification tasks are required in tasks.md for ${change}`,
       path: tasksPath
     });
   }
+
   return { hook: "open", change, status: "passed" };
 }
 
