@@ -70,20 +70,6 @@ After the subagent completes:
 - If a valid file path is returned and the file exists, record it as the plan
 - If the subagent fails or returns an invalid path, fall back to loading the Superpowers `writing-plans` skill inline in the main session (degraded fallback)
 
-<!-- HARNESS-COMET:BEGIN build-plan-extension -->
-### Harness/Playwright Plan Extension
-
-When the Design Doc contains `## Playwright Authoring Plan`, the implementation plan must preserve each approved target path and operation exactly:
-
-- `verify`: add verification work without planned edits
-- `update`: edit only approved test and support assets
-- `create`: create only approved paths
-- `retire`: remove the approved target and references
-- `ignore`: create no implementation task
-
-Do not introduce undeclared targets.
-<!-- HARNESS-COMET:END build-plan-extension -->
-
 ### 2. Update Plan Status and Provide Plan-Ready Pause Point
 
 Record plan path:
@@ -242,23 +228,6 @@ During task execution, whenever a crash, unexpected behavior, test failure, or b
 
 For specific investigation, minimal failing test, fix verification, and keeping the current change verification loop, follow `comet/reference/debug-gate.md`.
 
-<!-- HARNESS-COMET:BEGIN build-authoring-execution -->
-### 3a. Harness/Playwright Authoring Execution
-
-Whenever execution reaches a Playwright authoring task:
-
-1. Immediately load `playwright-authoring-build` in `comet` context.
-2. Treat the approved Design Doc plan as the exact scope boundary.
-3. Apply only declared target operations and paths.
-4. Test the real application implementation. Mock dependencies, never the feature itself.
-5. Preserve approved assertions, `@harness` tags, fixtures, test data, Page Objects, network strategy, and evidence requirements.
-6. Do not create standalone authoring-session documents.
-7. Do not introduce undeclared targets.
-8. Check off the task only after target-specific acceptance and verification pass.
-
-For subagent-driven development, every implementer or fix agent assigned a Playwright task must load `playwright-authoring-build` before editing Playwright assets.
-<!-- HARNESS-COMET:END build-authoring-execution -->
-
 ### 4. Spec Incremental Updates
 
 When the initial spec is found incomplete during implementation, handle by scale:
@@ -292,26 +261,6 @@ Build is the longest phase and may span many tasks. To support resume after cont
 - **User manual-change resume**: handle uncommitted changes through `comet/reference/dirty-worktree.md`. That protocol defines checks, attribution, and prohibitions. Build-specific handling:
   1. After attribution, if the diff implies plan or spec changes, handle it through Step 4 "Spec Incremental Updates"
 - **Long task split**: if a single task exceeds 200 lines of code changes, consider splitting it into multiple subtasks and commits
-
-<!-- HARNESS-COMET:BEGIN build-authoring-verification -->
-### Harness/Playwright Authoring Verification and Build Gate
-
-After implementation and required code review, but before the upstream Build guard:
-
-1. Immediately load `playwright-authoring-verify` in `comet` context.
-2. Validate every declared runnable target and confirm paths and operations match the approved decision and plan.
-3. Confirm tags, requirement assertions, real-application boundary, fixtures, mocks, and evidence.
-4. Confirm no synthetic replacement application or undeclared target was introduced.
-5. Confirm `verify` and `ignore` targets were not edited without a newly confirmed decision.
-6. Record results in the Design Doc under `## Playwright Authoring Verification`.
-7. Run:
-
-   ```bash
-   pnpm exec harness-comet comet hook build --change <change-name>
-   ```
-
-If implementation is defective, return to the relevant Build task without broadening scope. If target scope must change, return through Design and obtain a revised user decision. Do not edit `.harness-comet/manifest.json` to simulate success.
-<!-- HARNESS-COMET:END build-authoring-verification -->
 
 ## Exit Conditions
 

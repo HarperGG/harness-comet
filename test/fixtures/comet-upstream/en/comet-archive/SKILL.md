@@ -33,20 +33,6 @@ fi
 
 Proceed to Step 1 after verification passes. The script outputs specific failure reasons when verification fails.
 
-<!-- HARNESS-COMET:BEGIN archive-preflight -->
-### Harness/Playwright Archive Preflight
-
-Before the upstream final archive confirmation, if the project is in Playwright mode and the change has a Playwright decision, plan, or Harness receipt, run:
-
-```bash
-pnpm exec harness-comet comet archive-check --change <change-name>
-```
-
-Confirm that the verification receipt is passing or explicitly not applicable; receipt, results, report, and fingerprints are fresh; declared targets and operations remain consistent; required evidence paths exist; ignored and retired targets are consistent; incident bindings are valid; and no Playwright asset changed after verification without a newer receipt.
-
-If preflight fails, do not present the change as archive-ready. Offer upstream re-verification or leave the change in Archive state. Do not edit manifests, receipts, or fingerprints to simulate freshness.
-<!-- HARNESS-COMET:END archive-preflight -->
-
 ### 1. Final Archive Confirmation (Blocking Point)
 
 After entry verification passes, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for the user to confirm whether to archive immediately**. Must not run `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"` before user confirmation.

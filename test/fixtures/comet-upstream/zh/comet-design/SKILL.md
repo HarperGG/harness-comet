@@ -193,22 +193,6 @@ mkdir -p openspec/changes/<name>/.comet/handoff
 - 压缩恢复提示必须包含 change 名称、当前步骤（Design Step 2）、以及上方三类需重新加载的 handoff 文件。
 - 如果当前平台无法由 agent 程序化触发压缩，必须暂停并提示用户在宿主平台执行手动压缩；用户确认无法压缩或要求继续时，才继续 Step 2。
 
-<!-- HARNESS-COMET:BEGIN design-authoring-plan -->
-### Harness/Playwright 编写规划
-
-如果 `harness-comet.config.ts` 解析为 `mode: "playwright"`：
-
-1. 当 `proposal.md` 含已启用的 `Playwright Authoring Decision` 时，立即在 `comet` 上下文加载 `playwright-authoring-plan`。
-2. 使用原始需求、`Playwright Impact Analysis`、已确认目标决策、已确认技术方案、OpenSpec 产物、交接包和仓库证据。
-3. 不得引入已确认决策之外的目标。
-4. 逐目标生成需求到断言映射、边界分类、执行路径、生产代码来源、目标操作、文件、fixture、测试数据、Page Object、网络策略、证据路径和验证命令。
-5. 与已确认设计或 Spec Patch 冲突时，回到 brainstorming 和用户确认，不得静默改变范围。
-6. 跳过编写时生成明确 no-op 规划。
-7. 创建上游 Design Doc 时，在 `## Playwright Authoring Plan` 下写入规划。
-
-Design 阶段不得修改 Playwright 资产。
-<!-- HARNESS-COMET:END design-authoring-plan -->
-
 ### 2. 创建 Design Doc
 
 基于 brainstorming 对话的完整上下文（仍在主 session 中），创建 Design Doc。
@@ -227,18 +211,6 @@ canonical_spec: openspec
 如需回写 delta spec（Spec Patch），同时编辑对应的 `specs/*/spec.md`。
 
 **上下文压缩恢复**：若上下文已被压缩，从 `brainstorm-summary.md` + handoff 上下文恢复。若用户尚未确认设计方案，回到 Step 1b/1c 继续 brainstorming；若用户已确认，继续创建 Design Doc。brainstorm-summary.md 是压缩恢复的落盘点，不是 Design Doc 的唯一输入——创建时应尽可能利用恢复后的完整上下文。
-
-<!-- HARNESS-COMET:BEGIN design-gate -->
-### Harness/Playwright Design Gate
-
-在上游 Step 3 中，记录 `design_doc` 并按需重新生成 handoff 后、执行原生 Design guard 前运行：
-
-```bash
-pnpm exec harness-comet comet hook design --change <change-name>
-```
-
-失败时修复 Design Doc、Playwright 规划、OpenSpec 产物或决策一致性并重试。不得编辑 `.harness-comet/manifest.json` 伪造成功。
-<!-- HARNESS-COMET:END design-gate -->
 
 ### 3. 更新 Comet 状态
 

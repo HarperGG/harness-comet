@@ -33,20 +33,6 @@ fi
 
 验证通过后继续 Step 1。验证失败时脚本会输出具体失败原因。
 
-<!-- HARNESS-COMET:BEGIN archive-preflight -->
-### Harness/Playwright 归档预检
-
-上游最终归档确认前，如果项目为 Playwright 模式且 change 有 Playwright 决策、规划或 Harness receipt，运行：
-
-```bash
-pnpm exec harness-comet comet archive-check --change <change-name>
-```
-
-确认验证 receipt 为通过或明确 not-applicable；receipt、results、report 和 fingerprints 仍然新鲜；目标和操作一致；证据路径存在；ignored 和 retired 目标一致；incident 绑定有效；验证后没有 Playwright 资产变化却缺少更新后的 receipt。
-
-预检失败时不得把 change 展示为可归档。按上游流程重新验证或保持 Archive 状态。不得编辑 manifest、receipt 或 fingerprints 伪造新鲜度。
-<!-- HARNESS-COMET:END archive-preflight -->
-
 ### 1. 归档前最终确认（阻塞点）
 
 入口验证通过后，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户确认是否立即归档**。不得在用户确认前运行 `"$COMET_BASH" "$COMET_ARCHIVE" "<change-name>"`。

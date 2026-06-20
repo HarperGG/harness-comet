@@ -174,21 +174,6 @@ fi
 
 **文件存在性验证**：逐个确认三个文件路径存在且非空。任一文件缺失或为空时，不得进入 Step 5 或执行阶段守卫，必须回到创建步骤补充。
 
-<!-- HARNESS-COMET:BEGIN open-impact -->
-### Harness/Playwright 影响分析
-
-如果 `harness-comet.config.ts` 解析为 `mode: "playwright"`：
-
-1. 立即在 `comet` 上下文加载 `playwright-impact-analysis`。
-2. 分析已确认需求、OpenSpec 产物、相关生产代码、现有 `*.spec.*`、fixture、Page Object、测试数据和支持工具。
-3. Open 阶段不得修改 Playwright 资产。
-4. 将规范化结果写入 `proposal.md` 的 `## Playwright Impact Analysis`。
-
-该章节必须识别行为变化、受影响测试、覆盖缺口、精确证据路径、建议目标操作、置信度和未解决不确定性。
-
-非 Playwright 模式跳过此扩展，并原样继续上游流程。
-<!-- HARNESS-COMET:END open-impact -->
-
 ### 5. 用户审视确认（阻塞点）
 
 三个文档创建完成且内容完整性检查通过后，**必须按 `comet/reference/decision-point.md` 的协议暂停并等待用户确认**。不得在用户确认前执行阶段守卫或自动流转。
@@ -205,25 +190,6 @@ fi
 - 「需要调整」— 附带调整说明，修改后重新请求确认
 
 用户选择「确认」后继续执行退出条件。用户选择「需要调整」时，按其说明修改对应文件，然后重新请求确认。
-
-<!-- HARNESS-COMET:BEGIN open-decision-and-gate -->
-### Harness/Playwright 编写决策与 Open Gate
-
-上游用户审视确认后，如果项目为 Playwright 模式：
-
-1. 立即在 `comet` 上下文加载 `playwright-authoring-decision`。
-2. 允许用户接受建议、自定义目标级操作、跳过 Playwright 编写或请求调整。
-3. 将规范化决策写入 `proposal.md` 的 `## Playwright Authoring Decision`。
-4. 只使用 `verify`、`update`、`create`、`retire`、`ignore` 目标级操作。
-5. 启用编写时，在 `tasks.md` 添加明确的 Playwright 规划、实施和验证任务。
-6. 在上游 Open guard 前运行：
-
-   ```bash
-   pnpm exec harness-comet comet hook open --change <change-name>
-   ```
-
-hook 失败时修复报告的产物并重试。不得编辑 `.harness-comet/manifest.json` 伪造成功。
-<!-- HARNESS-COMET:END open-decision-and-gate -->
 
 ## 退出条件
 

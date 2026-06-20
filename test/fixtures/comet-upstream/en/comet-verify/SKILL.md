@@ -168,20 +168,6 @@ When verification does not pass: report missing items, enter Step 1b verificatio
   - Option B: After user selects B, run `"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-fail`, then invoke `/comet-build`; `/comet-build`'s Spec Incremental Update rules will load the Superpowers `brainstorming` skill to update Design Doc + delta spec
   - Option C: Confirm deviation is acceptable, continue verification (design doc will be marked as `superseded-by-main-spec` during archiving)
 
-<!-- HARNESS-COMET:BEGIN verify-playwright -->
-### Harness/Playwright Change Verification
-
-After the upstream light or full verification passes, and before branch finishing, if the project is in Playwright mode and the change has a Playwright decision or plan, run:
-
-```bash
-pnpm exec harness-comet comet verify --change <change-name>
-```
-
-The command must execute only declared runnable targets, exclude ignored and retired targets, protect unchanged `verify` targets, require Harness reporter output, validate declared-target coverage, and write results, report, receipt, fingerprints, and evidence metadata. When no runnable target applies, it must produce an explicit not-applicable receipt.
-
-Do not create, update, retire, redesign, or repair Playwright assets during Verify. On failure, report exact targets and evidence and enter the upstream verification-failure decision flow. Return to Build only after the user chooses to fix.
-<!-- HARNESS-COMET:END verify-playwright -->
-
 ### 3. Finishing (Superpowers)
 
 **Immediately execute:** Use the Skill tool to load the Superpowers `finishing-a-development-branch` skill. Skipping this step is prohibited.

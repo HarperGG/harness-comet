@@ -70,20 +70,6 @@ Subagent 完成后：
 - 若返回有效文件路径且文件存在，记录为 plan
 - 若 subagent 失败或返回路径无效，在主 session 内联加载 Superpowers `writing-plans` 技能创建计划（降级回退）
 
-<!-- HARNESS-COMET:BEGIN build-plan-extension -->
-### Harness/Playwright 计划扩展
-
-Design Doc 包含 `## Playwright Authoring Plan` 时，实施计划必须精确保留每个已批准目标路径和操作：
-
-- `verify`：只添加验证工作，不计划修改
-- `update`：只编辑已批准测试和支持资产
-- `create`：只创建已批准路径
-- `retire`：移除已批准目标及引用
-- `ignore`：不创建实施任务
-
-不得引入未声明目标。
-<!-- HARNESS-COMET:END build-plan-extension -->
-
 ### 2. 更新计划状态并提供 plan-ready 暂停点
 
 先记录 plan 路径：
@@ -254,23 +240,6 @@ git commit -m "chore: add implementation plan"
 
 具体调查、最小失败测试、修复验证和保持当前 change 验证闭环的要求，按 `comet/reference/debug-gate.md` 执行。
 
-<!-- HARNESS-COMET:BEGIN build-authoring-execution -->
-### 3a. Harness/Playwright 编写实施
-
-执行到 Playwright 编写任务时：
-
-1. 立即在 `comet` 上下文加载 `playwright-authoring-build`。
-2. 将已批准 Design Doc 规划作为精确范围边界。
-3. 只实施已声明目标操作和路径。
-4. 测试真实应用实现；可以 mock 依赖，但不得 mock 功能本身。
-5. 保留已批准断言、`@harness` 标签、fixture、测试数据、Page Object、网络策略和证据要求。
-6. 不创建独立 authoring session 文档。
-7. 不引入未声明目标。
-8. 目标级验收和验证通过后才勾选任务。
-
-subagent 模式下，每个负责 Playwright 任务的 implementer 或 fix agent 必须在编辑资产前加载 `playwright-authoring-build`。
-<!-- HARNESS-COMET:END build-authoring-execution -->
-
 ### 4. Spec 增量更新
 
 实施过程中发现初版 spec 不完整时，按变更规模分级处理：
@@ -304,26 +273,6 @@ Build 是最长阶段，可能跨越大量任务。为支持上下文压缩后�
 - **用户手动修改恢复**：按 `comet/reference/dirty-worktree.md` 协议处理未提交改动。该协议定义了检查步骤、归因分类和禁令。build 阶段的特殊处理：
   1. 归因后，若 diff 暗示计划或 spec 已变化，按 Step 4「Spec 增量更新」分级处理
 - **长任务拆分**：单任务超过 200 行代码变更时，考虑拆分为多个子任务分别提交
-
-<!-- HARNESS-COMET:BEGIN build-authoring-verification -->
-### Harness/Playwright 编写验证与 Build Gate
-
-实施和必要代码审查完成后、执行上游 Build guard 前：
-
-1. 立即在 `comet` 上下文加载 `playwright-authoring-verify`。
-2. 验证每个已声明可运行目标，确认路径和操作与已批准决策及规划一致。
-3. 确认标签、需求断言、真实应用边界、fixture、mock 和证据。
-4. 确认没有合成替代应用或未声明目标。
-5. 确认 `verify` 和 `ignore` 目标未在无新确认决策时被编辑。
-6. 将结果写入 Design Doc 的 `## Playwright Authoring Verification`。
-7. 运行：
-
-   ```bash
-   pnpm exec harness-comet comet hook build --change <change-name>
-   ```
-
-实施有缺陷时回到对应 Build 任务且不得扩大范围。目标范围必须变化时回到 Design 并获得新决策。不得编辑 `.harness-comet/manifest.json` 伪造成功。
-<!-- HARNESS-COMET:END build-authoring-verification -->
 
 ## 退出条件
 

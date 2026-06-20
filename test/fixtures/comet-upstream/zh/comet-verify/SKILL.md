@@ -166,20 +166,6 @@ CURRENT_HASH=$("$COMET_BASH" "$COMET_HANDOFF" <change-name> --hash-only 2>/dev/n
   - 选项 B：用户选择 B 后，运行 `"$COMET_BASH" "$COMET_STATE" transition <change-name> verify-fail`，然后调用 `/comet-build`；由 `/comet-build` 的 Spec 增量更新规则加载 Superpowers `brainstorming` 更新 Design Doc + delta spec
   - 选项 C：确认偏差可接受，继续验证（归档时 design doc 将标记为 `superseded-by-main-spec`）
 
-<!-- HARNESS-COMET:BEGIN verify-playwright -->
-### Harness/Playwright Change 验证
-
-上游 light 或 full 验证通过后、分支收尾前，如果项目为 Playwright 模式且 change 有 Playwright 决策或规划，运行：
-
-```bash
-pnpm exec harness-comet comet verify --change <change-name>
-```
-
-命令必须只执行已声明可运行目标，排除 ignored 和 retired 目标，保护未变更的 `verify` 目标，要求 Harness reporter 输出，校验目标覆盖，并写入 results、report、receipt、fingerprints 和 evidence 元数据。无可运行目标时必须生成明确 not-applicable receipt。
-
-Verify 阶段不得创建、更新、退役、重设计或修复 Playwright 资产。失败时报告精确目标和证据，并进入上游验证失败决策流程。只有用户选择修复后才回到 Build。
-<!-- HARNESS-COMET:END verify-playwright -->
-
 ### 3. 收尾（Superpowers）
 
 **立即执行：** 使用 Skill 工具加载 Superpowers `finishing-a-development-branch` 技能。禁止跳过此步骤。

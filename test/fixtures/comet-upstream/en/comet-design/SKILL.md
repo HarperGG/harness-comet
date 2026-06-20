@@ -192,22 +192,6 @@ Rules:
 - The compaction resume prompt must include the change name, current step (Design Step 2), and the three handoff file categories listed above.
 - If the current platform cannot be compacted programmatically by the agent, pause and tell the user to run the host platform's manual compaction action; continue to Step 2 only after the user confirms compaction is unavailable or asks to continue.
 
-<!-- HARNESS-COMET:BEGIN design-authoring-plan -->
-### Harness/Playwright Authoring Plan
-
-If `harness-comet.config.ts` resolves to `mode: "playwright"`:
-
-1. If `proposal.md` contains an enabled `Playwright Authoring Decision`, immediately load `playwright-authoring-plan` in `comet` context.
-2. Use the original requirement, `Playwright Impact Analysis`, confirmed target decisions, confirmed technical approach, OpenSpec artifacts, handoff package, and repository evidence.
-3. Do not introduce targets absent from the confirmed decision.
-4. Produce a target-by-target plan with requirement-to-assertion mapping, boundary classification, execution route, production sources, exact target operations, files, fixtures, test data, Page Objects, network strategy, evidence paths, and verification commands.
-5. Reconcile conflicts with the confirmed design and Spec Patches by returning to brainstorming and user confirmation; never change scope silently.
-6. If authoring was skipped, create an explicit no-op plan.
-7. When the upstream Design Doc is created, include the plan under `## Playwright Authoring Plan`.
-
-Do not modify Playwright assets during Design.
-<!-- HARNESS-COMET:END design-authoring-plan -->
-
 ### 2. Create Design Doc
 
 Create the Design Doc based on the full brainstorming conversation context (still in the main session).
@@ -226,18 +210,6 @@ Write the Design Doc to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
 If Spec Patches need to be written back, also edit the corresponding `specs/*/spec.md`.
 
 **Context compaction recovery**: If context has been compacted, resume from `brainstorm-summary.md` + handoff context. If the user has not confirmed the design proposal yet, return to Step 1b/1c and continue brainstorming; if the user has confirmed it, continue creating the Design Doc. brainstorm-summary.md is the compaction checkpoint, not the sole input for the Design Doc — when creating, leverage the full recovered context as much as possible.
-
-<!-- HARNESS-COMET:BEGIN design-gate -->
-### Harness/Playwright Design Gate
-
-In upstream Step 3, after recording `design_doc` and regenerating handoff when needed, but immediately before the native Design guard, run:
-
-```bash
-pnpm exec harness-comet comet hook design --change <change-name>
-```
-
-If it fails, fix the Design Doc, Playwright plan, OpenSpec artifacts, or decision consistency and rerun it. Do not edit `.harness-comet/manifest.json` to simulate success.
-<!-- HARNESS-COMET:END design-gate -->
 
 ### 3. Update Comet State
 
