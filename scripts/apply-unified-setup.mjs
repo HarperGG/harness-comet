@@ -37,7 +37,7 @@ const block = `  program
         const report = await installComet(root, setupOptions);
         const harness = await maybeInitHarness(root, setupOptions);
         if (options.json) {
-          process.stdout.write(\`${JSON.stringify({ ...report, harness }, null, 2)}\\n\`);
+          process.stdout.write(JSON.stringify({ ...report, harness }, null, 2) + "\\n");
           return;
         }
         process.stdout.write(formatInstallReport(report, harness));
