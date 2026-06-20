@@ -44,11 +44,11 @@ describe("managed comet-open assets", () => {
     expect(skill).toContain("PRD 拆分预检（阻塞点）");
     expect(skill).toContain("需求澄清完成确认（阻塞点）");
     expect(skill).toContain("Change 名称确认（阻塞点）");
-    expect(skill).toContain("标准 artifact 循环");
+    expect(skill).toContain("标准产物循环");
     expect(skill).toContain("幂等性：");
     expect(skill).toContain("Playwright 影响分析");
     expect(skill).toContain("playwright-authoring-decision");
     expect(skill).toContain("harness-comet comet hook open --change");
-    expect(skill).toContain("自动交接到下一阶段");
+    expect(skill).toContain("自动衔接下一阶段");
   });
 });
