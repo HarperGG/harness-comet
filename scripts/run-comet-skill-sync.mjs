@@ -14,6 +14,10 @@ const replacements = [
     'result = insertBefore(result, language === "en" ? "## Exit Conditions" : "## 退出条件", b.openBeforeExit, `${language}/open exit`);'
   ],
   [
+    'const debug = language === "en"\n      ? "### 3b. In-Execution Debugging (Debug Gate)"\n      : "### 3b. 执行中异常调试（Debug Gate）";',
+    'const debug = language === "en"\n      ? "### 4. Spec Incremental Updates"\n      : "### 4. Spec 增量更新";'
+  ],
+  [
     'result = insertBefore(result, "## Exit Conditions", b.buildBeforeExit, `${language}/build exit`);',
     'result = insertBefore(result, language === "en" ? "## Exit Conditions" : "## 退出条件", b.buildBeforeExit, `${language}/build exit`);'
   ]
