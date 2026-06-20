@@ -25,4 +25,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm exec vitest run test/setup.integration.test.ts
-      - run: pnpm test
+
+      - name: Run full test suite
+        id: full_tests
+        continue-on-error: true
+        run: pnpm test > vitest-full.log 2>&1
+
+      - name: Upload full test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unified-setup-vitest-output
+          path: vitest-full.log
+
+      - name: Fail when tests fail
+        if: steps.full_tests.outcome == 'failure'
+        run: exit 1
