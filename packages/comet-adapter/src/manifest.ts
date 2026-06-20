@@ -10,7 +10,9 @@ import type {
 } from "./types.js";
 
 export const HARNESS_COMET_VERSION = "0.1.0";
-export const HARNESS_COMET_MANIFEST_PATH = path.join(".harness-comet", "manifest.json");
+export const HARNESS_COMET_STATE_DIR = path.join(".comet", "harness-comet");
+export const HARNESS_COMET_MANIFEST_PATH = path.join(HARNESS_COMET_STATE_DIR, "manifest.json");
+export const LEGACY_HARNESS_COMET_MANIFEST_PATH = path.join(".harness-comet", "manifest.json");
 export const UPSTREAM_COMET_REPOSITORY = "https://github.com/rpamis/comet";
 
 export function sha256(value: string): string {
@@ -20,14 +22,19 @@ export function sha256(value: string): string {
 export async function readManifest(
   projectRoot: string
 ): Promise<HarnessCometManifestV1 | undefined> {
-  const manifestPath = path.join(projectRoot, HARNESS_COMET_MANIFEST_PATH);
-  try {
-    const content = await fs.readFile(manifestPath, "utf8");
-    return JSON.parse(content) as HarnessCometManifestV1;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
+  const manifestPaths = [
+    path.join(projectRoot, HARNESS_COMET_MANIFEST_PATH),
+    path.join(projectRoot, LEGACY_HARNESS_COMET_MANIFEST_PATH)
+  ];
+  for (const manifestPath of manifestPaths) {
+    try {
+      const content = await fs.readFile(manifestPath, "utf8");
+      return JSON.parse(content) as HarnessCometManifestV1;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
   }
+  return undefined;
 }
 
 export async function writeManifest(

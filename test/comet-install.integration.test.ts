@@ -200,7 +200,7 @@ describe("comet install integration", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("DRY_RUN true");
     expect(result.stdout).toContain("TARGET codex");
-    await expect(access(path.join(root, ".harness-comet", "manifest.json"))).rejects.toThrow();
+    await expect(access(path.join(root, ".comet", "harness-comet", "manifest.json"))).rejects.toThrow();
     await expect(access(path.join(root, ".codex", "skills", "comet", "SKILL.md"))).rejects.toThrow();
   });
 
@@ -253,7 +253,7 @@ describe("comet install integration", () => {
     expect(archiveSkill).toContain("harness-comet comet archive-check --change");
     expect(archiveSkill).not.toContain("comet hook archive");
 
-    const manifestPath = path.join(root, ".harness-comet", "manifest.json");
+    const manifestPath = path.join(root, ".comet", "harness-comet", "manifest.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
     expect(manifest).toMatchObject({
       schemaVersion: 1,
@@ -266,6 +266,7 @@ describe("comet install integration", () => {
     });
     expect(manifest.targets[0].managedFiles).toHaveLength(5);
     expect(manifest.targets[0].language).toBe("en");
+    await expect(access(path.join(root, ".harness-comet"))).rejects.toThrow();
 
     const doctor = await execa("pnpm", [...cli, "--root", root, "comet", "doctor"]);
     expect(doctor.stdout).toContain("TARGET codex valid=true");
@@ -319,7 +320,7 @@ describe("comet install integration", () => {
     expect(openSkill).toContain("运行确定性的 open 阶段检查");
     const designSkill = await readFile(path.join(root, ".codex", "skills", "comet-design", "SKILL.md"), "utf8");
     expect(designSkill).toContain("## Harness 设计");
-    const manifest = JSON.parse(await readFile(path.join(root, ".harness-comet", "manifest.json"), "utf8"));
+    const manifest = JSON.parse(await readFile(path.join(root, ".comet", "harness-comet", "manifest.json"), "utf8"));
     expect(manifest.targets[0].language).toBe("zh");
   });
 
@@ -473,7 +474,7 @@ describe("comet install integration", () => {
 
     const manifest = JSON.parse(
       await readFile(
-        path.join(root, ".harness-comet", "manifest.json"),
+        path.join(root, ".comet", "harness-comet", "manifest.json"),
         "utf8"
       )
     );
