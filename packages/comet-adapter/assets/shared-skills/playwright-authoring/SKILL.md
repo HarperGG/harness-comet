@@ -130,4 +130,4 @@ The following must not differ by workflow mode:
 - assertions;
 - tags;
 - Playwright asset contents;
-- verification standards.
+- verification standards;

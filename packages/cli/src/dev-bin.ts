@@ -1,6 +1,9 @@
+import { runSkillCommand } from "./commands/skill-entry.js";
 import { main } from "./index.js";
 
-main(process.argv).catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 10;
-});
+runSkillCommand(process.argv)
+  .then((handled) => (handled ? undefined : main(process.argv)))
+  .catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 10;
+  });
