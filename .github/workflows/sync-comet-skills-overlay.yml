@@ -1,16 +1,15 @@
 name: Sync Comet skill overlays
 
 on:
-  push:
-    branches:
-      - fix/comet-skills-verbatim-upstream-overlay
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   sync:
-    if: ${{ !contains(github.event.head_commit.message, '[skip overlay-sync]') }}
+    if: ${{ github.head_ref == 'fix/comet-skills-verbatim-upstream-overlay' && !contains(github.event.pull_request.title, '[generated]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
