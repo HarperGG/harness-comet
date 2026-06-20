@@ -174,25 +174,6 @@ Confirm the three documents have complete content:
 
 **File existence verification**: Confirm all three file paths exist and are non-empty. If any file is missing or empty, must not enter Step 5 or execute phase guard — return to creation step to fill the gap.
 
-<!-- HARNESS-COMET:BEGIN open-impact -->
-### Harness/Playwright Impact Analysis
-
-If `harness-comet.config.ts` resolves to `mode: "playwright"`:
-
-1. Immediately load `playwright-impact-analysis` in `comet` context.
-2. Analyze the confirmed requirements, OpenSpec artifacts, relevant production code, existing `*.spec.*` files, fixtures, Page Objects, test data, and support helpers.
-3. Do not modify Playwright assets during Open.
-4. Write the normalized result to `proposal.md` under:
-
-   ```md
-   ## Playwright Impact Analysis
-   ```
-
-The section must identify changed behavior, affected tests, coverage gaps, exact evidence paths, recommended target operations, confidence, and unresolved uncertainty.
-
-For non-Playwright mode, skip this extension and continue the upstream workflow unchanged.
-<!-- HARNESS-COMET:END open-impact -->
-
 ### 5. User Review and Confirmation (Blocking Point)
 
 After the three documents are created and content completeness check passes, **must follow the `comet/reference/decision-point.md` protocol to pause and wait for user confirmation**. Must not execute phase guard or auto-transition before user confirmation.
@@ -209,25 +190,6 @@ The user confirmation question must be presented as a single-select question wit
 - "Needs adjustment" — include adjustment notes, modify and re-request confirmation
 
 After user selects "Confirm", proceed to exit conditions. When user selects "Needs adjustment", modify the corresponding files per their notes, then request confirmation again.
-
-<!-- HARNESS-COMET:BEGIN open-decision-and-gate -->
-### Harness/Playwright Authoring Decision and Open Gate
-
-After the upstream user review is confirmed, if the project is in Playwright mode:
-
-1. Immediately load `playwright-authoring-decision` in `comet` context.
-2. Let the user accept recommendations, customize target-level operations, skip Playwright authoring, or request adjustments.
-3. Persist the normalized decision in `proposal.md` under `## Playwright Authoring Decision`.
-4. Use only target-level operations: `verify`, `update`, `create`, `retire`, or `ignore`.
-5. When authoring is enabled, add explicit Playwright planning, implementation, and verification tasks to `tasks.md`.
-6. Run before the upstream Open guard:
-
-   ```bash
-   pnpm exec harness-comet comet hook open --change <change-name>
-   ```
-
-If the hook fails, fix the reported artifacts and rerun it. Do not edit `.harness-comet/manifest.json` to simulate success.
-<!-- HARNESS-COMET:END open-decision-and-gate -->
 
 ## Exit Conditions
 

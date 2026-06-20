@@ -1,0 +1,28 @@
+name: Validate Comet overlays
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test:
+    if: ${{ github.head_ref == 'fix/comet-skills-verbatim-upstream-overlay' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/comet-skills-verbatim-upstream-overlay
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.6.12
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec vitest run test/comet-managed-skills-overlay.test.ts
+      - run: pnpm test
