@@ -80,6 +80,60 @@ pnpm exec playwright show-report
 - [CLI 命令手册](docs/cli-reference.md)
 - [npm scope 与发布计划](docs/superpowers/plans/2026-06-17-npm-scope-publish-readiness.md)
 
+## 安装 Skill
+
+查看当前包中可独立安装的 skill：
+
+```bash
+pnpm exec harness-comet skill list
+```
+
+安装一个 skill：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision
+```
+
+未指定平台时，命令会自动检测项目中的 `.codex/` 和 `.claude/`，并安装到所有检测到的平台：
+
+```text
+.codex/skills/<skill-name>/
+.claude/skills/<skill-name>/
+```
+
+目前独立安装只支持 Codex 和 Claude。也可以显式指定平台：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform codex
+```
+
+同时安装到两个平台：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform codex \
+  --platform claude
+```
+
+预览写入内容：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform codex \
+  --dry-run
+```
+
+目标内容与包内 skill 不同时，命令默认拒绝覆盖；确认覆盖时使用 `--force`：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform codex \
+  --force
+```
+
+完整说明见 [独立 Skill 安装](docs/skill-installation.md)。
+
 ## 生成的目录
 
 典型 Playwright 项目结构：
@@ -354,6 +408,10 @@ jobs:
 pnpm exec harness-comet doctor
 pnpm exec harness-comet validate
 
+# Skill
+pnpm exec harness-comet skill list
+pnpm exec harness-comet skill install playwright-authoring-decision
+
 # 测试查看和运行
 pnpm exec harness-comet tests list
 pnpm exec harness-comet run
@@ -397,6 +455,7 @@ pnpm release:check
 ## 文档
 
 - [CLI 命令手册](docs/cli-reference.md)
+- [独立 Skill 安装](docs/skill-installation.md)
 - [测试编写指南](docs/testing/authoring-guide.md)
 - [Incident 指南](docs/testing/incident-guide.md)
 - [验收标准](docs/testing/acceptance-criteria.md)
