@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   sync:
-    if: ${{ github.head_ref == 'fix/comet-skills-verbatim-upstream-overlay' && !contains(github.event.pull_request.title, '[generated]') }}
+    if: ${{ github.head_ref == 'fix/comet-skills-verbatim-upstream-overlay' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,11 +22,21 @@ jobs:
           node-version: 20
 
       - name: Generate managed skills from upstream
+        id: generate
+        continue-on-error: true
         run: |
           sed -i 's/### 2\. 更新计划状态并提供 Plan-Ready 暂停点/### 2. 更新计划状态并提供 plan-ready 暂停点/' scripts/sync-comet-managed-skills.mjs
-          node scripts/sync-comet-managed-skills.mjs
+          node scripts/sync-comet-managed-skills.mjs > overlay-sync.log 2>&1
+
+      - name: Upload sync output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-sync-output
+          path: overlay-sync.log
 
       - name: Commit generated overlays and snapshots
+        if: steps.generate.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
