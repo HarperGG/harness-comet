@@ -17,7 +17,8 @@
     "url": "https://github.com/HarperGG/harness-comet/issues"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "publishConfig": {
     "access": "public",
