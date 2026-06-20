@@ -11,7 +11,7 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --check .",
     "harness-comet": "node packages/cli/bin/harness-comet.js",
-    "sync:comet-skills": "node scripts/sync-comet-managed-skills.mjs",
+    "sync:comet-skills": "node scripts/run-comet-skill-sync.mjs",
     "setup:browsers": "pnpm --filter @hapergg/harness-comet-adapter-playwright exec playwright install chromium",
     "release:check": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm lint",
     "pack:all": "node scripts/pack-all.mjs",
