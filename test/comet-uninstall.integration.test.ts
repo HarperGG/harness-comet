@@ -74,7 +74,7 @@ describe("comet uninstall integration", () => {
     expect(openSkill).toContain("open phase from upstream Comet.");
     expect(openSkill).not.toContain("harness-comet:start");
     const manifest = JSON.parse(
-      await readFile(path.join(root, ".harness-comet", "manifest.json"), "utf8")
+      await readFile(path.join(root, ".comet", "harness-comet", "manifest.json"), "utf8")
     );
     expect(manifest.targets).toHaveLength(0);
   });
@@ -143,7 +143,7 @@ describe("comet uninstall integration", () => {
     const cursorSkill = await readFile(path.join(root, ".cursor", "skills", "comet-open", "SKILL.md"), "utf8");
     expect(cursorSkill).toContain("harness-comet:start");
     const manifest = JSON.parse(
-      await readFile(path.join(root, ".harness-comet", "manifest.json"), "utf8")
+      await readFile(path.join(root, ".comet", "harness-comet", "manifest.json"), "utf8")
     );
     expect(manifest.targets).toHaveLength(1);
     expect(manifest.targets[0].platformId).toBe("cursor");

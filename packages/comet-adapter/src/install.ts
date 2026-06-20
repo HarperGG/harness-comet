@@ -11,6 +11,7 @@ import {
 } from "./managed-skill-assets.js";
 import {
   HARNESS_COMET_MANIFEST_PATH,
+  HARNESS_COMET_STATE_DIR,
   buildManagedFileRecord,
   readManifest,
   sha256,
@@ -119,7 +120,7 @@ export async function installCometIntegration(
         if (plan.backupSource) {
           backupRoot ??= path.join(
             options.projectRoot,
-            ".harness-comet",
+            HARNESS_COMET_STATE_DIR,
             "backups",
             new Date().toISOString().replace(/[:.]/g, "-")
           );
