@@ -405,8 +405,7 @@ describe("comet install integration", () => {
       "utf8"
     );
 
-    expect(openSkill).toContain("Managed by @hapergg/harness-comet");
-    expect(openSkill).toContain("### 4. Playwright Impact Analysis");
+    expect(openSkill).toContain("### Harness/Playwright Impact Analysis");
     expect(openSkill).toContain("playwright-impact-analysis");
     expect(openSkill).toContain("playwright-authoring-decision");
     expect(openSkill).toContain(
@@ -423,7 +422,7 @@ describe("comet install integration", () => {
       "utf8"
     );
 
-    expect(designSkill).toContain("### 3. Playwright Authoring Plan");
+    expect(designSkill).toContain("### Harness/Playwright Authoring Plan");
     expect(designSkill).toContain("playwright-authoring-plan");
     expect(designSkill).toContain("harness-comet comet hook design --change");
 
@@ -443,7 +442,7 @@ describe("comet install integration", () => {
 
     expect(verifySkill).toContain("harness-comet comet verify --change");
     expect(verifySkill).toContain(
-      "Do not create, update, retire, or redesign Playwright assets during Verify."
+      "Do not create, update, retire, redesign, or repair Playwright assets during Verify."
     );
 
     const archiveSkill = await readFile(
