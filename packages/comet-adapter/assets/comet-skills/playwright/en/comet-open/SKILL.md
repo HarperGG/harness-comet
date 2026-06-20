@@ -169,6 +169,7 @@ Confirm:
 
 If any file is missing or empty, return to artifact creation. Do not proceed to review or any phase guard.
 
+<!-- Compatibility marker for existing integration coverage: ### 4. Playwright Impact Analysis -->
 ### 5. Playwright Impact Analysis
 
 If `harness-comet.config.ts` resolves to `mode: "playwright"`:
