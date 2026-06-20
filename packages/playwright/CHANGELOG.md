@@ -1,5 +1,13 @@
 # @hapergg/harness-comet-playwright
 
+## 0.2.1
+
+### Patch Changes
+
+- update readme.md
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
