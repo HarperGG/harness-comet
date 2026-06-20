@@ -111,7 +111,7 @@ Persist the normalized result in `proposal.md` under:
 ## Playwright Authoring Decision
 ```
 
-Use target-specific operations: `verify`, `update`, `create`, `retire`, or `ignore`. Do not expose `none`, `verify-existing`, or `update-or-create` as the user-facing decision.
+Use target-specific operations: `verify`, `update`, `create`, `retire`, or `ignore`. Do not expose legacy global action names as user-facing decisions.
 
 When authoring is enabled, ensure `tasks.md` contains explicit Playwright planning, implementation, and verification tasks.
 
