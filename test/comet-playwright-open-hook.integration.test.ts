@@ -19,19 +19,46 @@ async function fixture() {
   return { root, change, proposalPath: path.join(dir, "proposal.md") };
 }
 
+async function run(root: string, change: string) {
+  return execa("pnpm", [...cli, "--root", root, "comet", "hook", "open", "--change", change], { reject: false });
+}
+
 describe("Playwright Comet open hook", () => {
   it("does not require design_doc during Open", async () => {
     const { root, change } = await fixture();
-    const result = await execa("pnpm", [...cli, "--root", root, "comet", "hook", "open", "--change", change]);
+    const result = await run(root, change);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("passed");
+  });
+
+  it("accepts quoted values, list-prefixed operations, and comments", async () => {
+    const { root, change, proposalPath } = await fixture();
+    const proposal = await readFile(proposalPath, "utf8");
+    await writeFile(
+      proposalPath,
+      proposal
+        .replace("enabled: true", 'enabled: "true" # confirmed')
+        .replace("confirmedBy: user", "confirmedBy: 'user'")
+        .replace("operation: update", '- operation: "create" # new test')
+    );
+    const result = await run(root, change);
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("reports a parse-specific error when no operation can be parsed", async () => {
+    const { root, change, proposalPath } = await fixture();
+    const proposal = await readFile(proposalPath, "utf8");
+    await writeFile(proposalPath, proposal.replace("operation: update", "operation = update"));
+    const result = await run(root, change);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("No Playwright target operations could be parsed");
   });
 
   it("rejects legacy aggregate operations", async () => {
     const { root, change, proposalPath } = await fixture();
     const proposal = await readFile(proposalPath, "utf8");
     await writeFile(proposalPath, proposal.replace("operation: update", "operation: update-or-create"));
-    const result = await execa("pnpm", [...cli, "--root", root, "comet", "hook", "open", "--change", change], { reject: false });
+    const result = await run(root, change);
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("Unsupported Playwright target operation");
   });
