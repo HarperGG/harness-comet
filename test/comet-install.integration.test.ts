@@ -376,7 +376,7 @@ describe("comet install integration", () => {
     );
   });
 
-  it("patches Comet skills with Playwright-specific guidance when mode=playwright", async () => {
+  it("replaces Comet skills and installs Playwright authoring skills when mode=playwright", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet("0.3.8");
     const root = await mkdtemp(path.join(tmpdir(), "comet-install-playwright-mode-"));
 
@@ -397,18 +397,108 @@ describe("comet install integration", () => {
     ]);
 
     expect(install.exitCode).toBe(0);
-    const openSkill = await readFile(path.join(root, ".codex", "skills", "comet-open", "SKILL.md"), "utf8");
-    expect(openSkill).toContain("## Harness Playwright Impact");
-    expect(openSkill).toContain("verify-existing");
-    expect(openSkill).toContain("update-or-create");
-    expect(openSkill).toContain("harness-comet impact set");
-    expect(openSkill).not.toContain("Existing Playwright assets");
-    const designSkill = await readFile(path.join(root, ".codex", "skills", "comet-design", "SKILL.md"), "utf8");
-    expect(designSkill).toContain("## Harness Playwright Plan");
-    expect(designSkill).toContain("### Target tests");
-    expect(designSkill).toContain("### Related test assets");
-    const verifySkill = await readFile(path.join(root, ".codex", "skills", "comet-verify", "SKILL.md"), "utf8");
-    expect(verifySkill).toContain("Do not create or redesign tests during Verify.");
+
+    const skillRoot = path.join(root, ".codex", "skills");
+
+    const openSkill = await readFile(
+      path.join(skillRoot, "comet-open", "SKILL.md"),
+      "utf8"
+    );
+
+    expect(openSkill).toContain("Managed by @hapergg/harness-comet");
+    expect(openSkill).toContain("### 4. Playwright Impact Analysis");
+    expect(openSkill).toContain("playwright-impact-analysis");
+    expect(openSkill).toContain("playwright-authoring-decision");
+    expect(openSkill).toContain(
+      "verify`, `update`, `create`, `retire`, or `ignore"
+    );
+    expect(openSkill).toContain("harness-comet comet hook open --change");
+
+    expect(openSkill).not.toContain("harness-comet impact set");
+    expect(openSkill).not.toContain("verify-existing");
+    expect(openSkill).not.toContain("update-or-create");
+
+    const designSkill = await readFile(
+      path.join(skillRoot, "comet-design", "SKILL.md"),
+      "utf8"
+    );
+
+    expect(designSkill).toContain("### 3. Playwright Authoring Plan");
+    expect(designSkill).toContain("playwright-authoring-plan");
+    expect(designSkill).toContain("harness-comet comet hook design --change");
+
+    const buildSkill = await readFile(
+      path.join(skillRoot, "comet-build", "SKILL.md"),
+      "utf8"
+    );
+
+    expect(buildSkill).toContain("playwright-authoring-build");
+    expect(buildSkill).toContain("playwright-authoring-verify");
+    expect(buildSkill).toContain("harness-comet comet hook build --change");
+
+    const verifySkill = await readFile(
+      path.join(skillRoot, "comet-verify", "SKILL.md"),
+      "utf8"
+    );
+
+    expect(verifySkill).toContain("harness-comet comet verify --change");
+    expect(verifySkill).toContain(
+      "Do not create, update, retire, or redesign Playwright assets during Verify."
+    );
+
+    const archiveSkill = await readFile(
+      path.join(skillRoot, "comet-archive", "SKILL.md"),
+      "utf8"
+    );
+
+    expect(archiveSkill).toContain(
+      "harness-comet comet archive-check --change"
+    );
+
+    const authoringSkills = [
+      "playwright-impact-analysis",
+      "playwright-authoring-decision",
+      "playwright-authoring-plan",
+      "playwright-authoring-build",
+      "playwright-authoring-verify"
+    ];
+
+    for (const skill of authoringSkills) {
+      const content = await readFile(
+        path.join(skillRoot, skill, "SKILL.md"),
+        "utf8"
+      );
+
+      expect(content).toContain(`name: ${skill}`);
+    }
+
+    const manifest = JSON.parse(
+      await readFile(
+        path.join(root, ".harness-comet", "manifest.json"),
+        "utf8"
+      )
+    );
+
+    expect(manifest.targets[0].managedFiles).toHaveLength(10);
+
+    expect(
+      manifest.targets[0].managedFiles.map(
+        (file: { relativePath: string }) => file.relativePath
+      )
+    ).toEqual(
+      expect.arrayContaining([
+        "comet-open/SKILL.md",
+        "comet-design/SKILL.md",
+        "comet-build/SKILL.md",
+        "comet-verify/SKILL.md",
+        "comet-archive/SKILL.md",
+        "playwright-impact-analysis/SKILL.md",
+        "playwright-authoring-decision/SKILL.md",
+        "playwright-authoring-plan/SKILL.md",
+        "playwright-authoring-build/SKILL.md",
+        "playwright-authoring-verify/SKILL.md"
+      ])
+    );
   });
 
   it("allows explicit platform install before Comet has created the platform directory", async () => {

@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "TypeScript SDK interfaces for Harness Comet adapters and oracles.",
   "license": "MIT",
   "type": "module",
