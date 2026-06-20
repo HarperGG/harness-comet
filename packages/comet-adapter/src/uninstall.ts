@@ -71,56 +71,49 @@ async function uninstallTarget(
   const kept: string[] = [];
 
   for (const managedFile of target.managedFiles) {
-    try {
-      const current = await fs.readFile(managedFile.absolutePath, "utf8");
-      const strategy = managedFile.strategy ?? "patch";
+    const current = await readOptionalFile(managedFile.absolutePath);
+    const strategy = managedFile.strategy ?? "patch";
 
-      if (strategy === "patch") {
-        const next = removeManagedPatch(managedFile.relativePath, current);
-        if (next !== current) {
-          await fs.writeFile(managedFile.absolutePath, next, "utf8");
-          removed.push(managedFile.relativePath);
-        } else {
-          kept.push(managedFile.relativePath);
-        }
+    if (strategy === "patch") {
+      if (current === undefined) continue;
+      const next = removeManagedPatch(managedFile.relativePath, current);
+      if (next !== current) {
+        await fs.writeFile(managedFile.absolutePath, next, "utf8");
+        removed.push(managedFile.relativePath);
+      } else {
+        kept.push(managedFile.relativePath);
+      }
+      continue;
+    }
+
+    if (strategy === "create") {
+      if (current === undefined) {
+        removed.push(managedFile.relativePath);
         continue;
       }
-
       if (sha256(current) !== managedFile.sha256) {
         kept.push(managedFile.relativePath);
         continue;
       }
-
-      if (strategy === "create") {
-        await fs.rm(managedFile.absolutePath, { force: true });
-        await removeEmptyParentDirectory(managedFile.absolutePath, target.skillRoot);
-        removed.push(managedFile.relativePath);
-        continue;
-      }
-
-      if (!managedFile.backupPath) {
-        kept.push(managedFile.relativePath);
-        continue;
-      }
-
-      try {
-        await fs.access(managedFile.backupPath);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        kept.push(managedFile.relativePath);
-        continue;
-      }
-
-      await fs.mkdir(path.dirname(managedFile.absolutePath), { recursive: true });
-      await fs.copyFile(managedFile.backupPath, managedFile.absolutePath);
+      await fs.rm(managedFile.absolutePath, { force: true });
+      await removeEmptyParentDirectory(managedFile.absolutePath, target.skillRoot);
       removed.push(managedFile.relativePath);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        if (managedFile.strategy === "create") removed.push(managedFile.relativePath);
-        continue;
-      }
-      throw error;
+      continue;
     }
+
+    if (current !== undefined && sha256(current) !== managedFile.sha256) {
+      kept.push(managedFile.relativePath);
+      continue;
+    }
+
+    if (!(await backupExists(managedFile))) {
+      kept.push(managedFile.relativePath);
+      continue;
+    }
+
+    await fs.mkdir(path.dirname(managedFile.absolutePath), { recursive: true });
+    await fs.copyFile(managedFile.backupPath!, managedFile.absolutePath);
+    removed.push(managedFile.relativePath);
   }
 
   return {
@@ -129,6 +122,26 @@ async function uninstallTarget(
     removed,
     kept
   };
+}
+
+async function readOptionalFile(filePath: string): Promise<string | undefined> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+}
+
+async function backupExists(managedFile: ManagedFileRecord): Promise<boolean> {
+  if (!managedFile.backupPath) return false;
+  try {
+    await fs.access(managedFile.backupPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
 }
 
 async function removeEmptyParentDirectory(filePath: string, skillRoot: string): Promise<void> {
