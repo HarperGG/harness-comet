@@ -1,15 +1,14 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import { HarnessError } from "@hapergg/harness-comet-core";
 import { removeManagedPatch } from "./assets.js";
 import { detectCometCli } from "./discovery/comet-cli.js";
-import {
-  readManifest,
-  replaceManifest
-} from "./manifest.js";
+import { readManifest, replaceManifest, sha256 } from "./manifest.js";
 import type {
   AgentTargetManifestRecord,
   CometUninstallReport,
-  CometUninstallTargetReport
+  CometUninstallTargetReport,
+  ManagedFileRecord
 } from "./types.js";
 
 export interface UninstallCometOptions {
@@ -45,11 +44,16 @@ export async function uninstallCometIntegration(
   }
 
   const reports: CometUninstallTargetReport[] = [];
+  const successfullyUninstalled = new Set<string>();
   for (const target of selected) {
-    reports.push(await uninstallTarget(target));
+    const report = await uninstallTarget(target);
+    reports.push(report);
+    if (report.kept.length === 0) successfullyUninstalled.add(target.platformId);
   }
 
-  const remaining = manifest.targets.filter((target) => !selected.some((item) => item.platformId === target.platformId));
+  const remaining = manifest.targets.filter(
+    (target) => !successfullyUninstalled.has(target.platformId)
+  );
   const manifestPath = await replaceManifest(options.projectRoot, remaining);
 
   return {
@@ -69,15 +73,53 @@ async function uninstallTarget(
   for (const managedFile of target.managedFiles) {
     try {
       const current = await fs.readFile(managedFile.absolutePath, "utf8");
-      const next = removeManagedPatch(managedFile.relativePath, current);
-      if (next !== current) {
-        await fs.writeFile(managedFile.absolutePath, next, "utf8");
-        removed.push(managedFile.relativePath);
-      } else {
-        kept.push(managedFile.relativePath);
+      const strategy = managedFile.strategy ?? "patch";
+
+      if (strategy === "patch") {
+        const next = removeManagedPatch(managedFile.relativePath, current);
+        if (next !== current) {
+          await fs.writeFile(managedFile.absolutePath, next, "utf8");
+          removed.push(managedFile.relativePath);
+        } else {
+          kept.push(managedFile.relativePath);
+        }
+        continue;
       }
+
+      if (sha256(current) !== managedFile.sha256) {
+        kept.push(managedFile.relativePath);
+        continue;
+      }
+
+      if (strategy === "create") {
+        await fs.rm(managedFile.absolutePath, { force: true });
+        await removeEmptyParentDirectory(managedFile.absolutePath, target.skillRoot);
+        removed.push(managedFile.relativePath);
+        continue;
+      }
+
+      if (!managedFile.backupPath) {
+        kept.push(managedFile.relativePath);
+        continue;
+      }
+
+      try {
+        await fs.access(managedFile.backupPath);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        kept.push(managedFile.relativePath);
+        continue;
+      }
+
+      await fs.mkdir(path.dirname(managedFile.absolutePath), { recursive: true });
+      await fs.copyFile(managedFile.backupPath, managedFile.absolutePath);
+      removed.push(managedFile.relativePath);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        if (managedFile.strategy === "create") removed.push(managedFile.relativePath);
+        continue;
+      }
+      throw error;
     }
   }
 
@@ -87,4 +129,15 @@ async function uninstallTarget(
     removed,
     kept
   };
+}
+
+async function removeEmptyParentDirectory(filePath: string, skillRoot: string): Promise<void> {
+  const parent = path.dirname(filePath);
+  if (path.resolve(parent) === path.resolve(skillRoot)) return;
+  try {
+    const entries = await fs.readdir(parent);
+    if (entries.length === 0) await fs.rmdir(parent);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
 }
