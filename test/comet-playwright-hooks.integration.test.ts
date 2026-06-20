@@ -92,21 +92,44 @@ async function createPlaywrightChangeWithDoc(
 ): Promise<void> {
   const changeRoot = path.join(root, "openspec", "changes", change);
   await mkdir(changeRoot, { recursive: true });
-  await writeFile(path.join(changeRoot, ".comet.yaml"), "phase: open\ndesign_doc: design.md\nverify_result: pass\n", "utf8");
+  await writeFile(
+    path.join(changeRoot, ".comet.yaml"),
+    "phase: open\ndesign_doc: design.md\nverify_result: pass\n",
+    "utf8"
+  );
   await writeFile(
     path.join(changeRoot, "tasks.md"),
-    "- Harness task: update Playwright scenario coverage\n",
+    "- [ ] Playwright planning\n- [ ] Playwright implementation\n- [ ] Playwright verification\n",
     "utf8"
   );
   await writeFile(
-    path.join(changeRoot, "design.md"),
-    designDoc,
+    path.join(changeRoot, "proposal.md"),
+    `# Proposal
+
+## Playwright Impact Analysis
+
+- Changed behavior: existing Playwright coverage is affected.
+- Reviewed test: tests/example.spec.ts
+
+## Playwright Authoring Decision
+
+\`\`\`yaml
+playwrightAuthoringDecision:
+  enabled: true
+  confirmedBy: user
+  targets:
+    - path: tests/example.spec.ts
+      operation: update
+      reason: Preserve existing coverage.
+\`\`\`
+`,
     "utf8"
   );
+  await writeFile(path.join(changeRoot, "design.md"), designDoc, "utf8");
 }
 
 describe("comet playwright hook integration", () => {
-  it("open hook validates Harness Playwright Impact", async () => {
+  it("open hook validates Playwright proposal artifacts", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "comet-pw-open-"));
     await createPlaywrightProject(root);
@@ -193,7 +216,7 @@ describe("comet playwright hook integration", () => {
     );
   });
 
-  it("open hook allows action none for onboarded Playwright projects", async () => {
+  it("open hook allows disabled authoring for onboarded Playwright projects", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "comet-pw-open-off-"));
     await createPlaywrightProject(root);
@@ -211,6 +234,27 @@ describe("comet playwright hook integration", () => {
 - Action: none
 - Reason: skip playwright changes
 `
+    );
+    await writeFile(
+      path.join(root, "openspec", "changes", "demo-change", "proposal.md"),
+      `# Proposal
+
+## Playwright Impact Analysis
+
+- Changed behavior: no Playwright authoring is required.
+
+## Playwright Authoring Decision
+
+\`\`\`yaml
+playwrightAuthoringDecision:
+  enabled: false
+  confirmedBy: user
+  targets: []
+  notes:
+    - No Playwright changes are required.
+\`\`\`
+`,
+      "utf8"
     );
 
     const result = await execa("pnpm", [
@@ -279,7 +323,9 @@ describe("comet playwright hook integration", () => {
     );
 
     expect(result.exitCode).not.toBe(0);
-    expect(`${result.stdout}\n${result.stderr}`).toContain("Action none cannot create Playwright assets");
+    expect(`${result.stdout}\n${result.stderr}`).toContain(
+      "Action none cannot create Playwright assets"
+    );
     expect(`${result.stdout}\n${result.stderr}`).toContain("tests/support/new-helper.ts");
   });
 });
