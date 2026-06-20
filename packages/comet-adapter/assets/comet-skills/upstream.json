@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/rpamis/comet",
+  "ref": "master",
+  "observedAt": "2026-06-20",
+  "files": [
+    "assets/skills/comet-open/SKILL.md",
+    "assets/skills/comet-design/SKILL.md",
+    "assets/skills/comet-build/SKILL.md",
+    "assets/skills/comet-verify/SKILL.md",
+    "assets/skills/comet-archive/SKILL.md"
+  ]
+}
