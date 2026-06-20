@@ -30,13 +30,25 @@ pnpm exec harness-comet --help
 
 ## 快速开始
 
-在业务项目中初始化 Playwright 模式：
+在业务项目根目录一键初始化 Playwright Harness 和 Comet 接入：
 
 ```bash
-pnpm exec harness-comet init \
-  --mode playwright \
-  --test-dir tests \
-  --yes
+pnpm exec harness-comet setup --mode playwright
+```
+
+该命令会自动检测当前项目中的本地 agent 平台，并同时完成：
+
+- 初始化 Playwright Harness；
+- 检查或安装 Comet CLI；
+- 初始化 Comet 项目；
+- 安装 Harness/Playwright 版 Comet skills；
+- 安装 Playwright 依赖和 Chromium；
+- 为所有检测到的项目本地平台写入接入文件。
+
+用于 CI 或非交互环境：
+
+```bash
+pnpm exec harness-comet setup --mode playwright --yes
 ```
 
 校验项目：
@@ -187,7 +199,13 @@ Harness-Comet 依赖 `@rpamis/comet` CLI，支持的版本范围为：
 
 ### 首次接入
 
-推荐直接运行交互式安装：
+推荐使用统一初始化命令，不需要指定 agent 平台：
+
+```bash
+pnpm exec harness-comet setup --mode playwright
+```
+
+该命令会自动检测并接入所有项目本地平台。只需要安装、修复或重新同步 Comet 接入时，再使用底层命令：
 
 ```bash
 pnpm exec harness-comet comet install
