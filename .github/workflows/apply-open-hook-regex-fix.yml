@@ -1,0 +1,30 @@
+name: Apply Open hook regex fix
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.head_ref == 'fix/playwright-open-hook-quoted-values' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/playwright-open-hook-quoted-values
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/apply-open-hook-regex-fix.mjs
+      - name: Commit hook change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/comet-adapter/src/hooks.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(comet): accept quoted Open decision values"
+          git push
