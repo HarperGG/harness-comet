@@ -1,4 +1,13 @@
-export const HARNESS_COMET_VERSION = "0.1.0";
+import { createRequire } from "node:module";
+
+interface PackageMetadata {
+  version: string;
+}
+
+const require = createRequire(import.meta.url);
+const packageMetadata = require("../package.json") as PackageMetadata;
+
+export const HARNESS_COMET_VERSION = packageMetadata.version;
 
 export const HARNESS_COMET_ADAPTER_MEMORY_PACKAGE =
   "@hapergg/harness-comet-adapter-memory";
