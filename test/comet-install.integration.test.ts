@@ -25,7 +25,7 @@ async function createFakeComet(
   const script = path.join(root, "comet");
   await writeFile(
     script,
-    `#!/bin/sh
+    `#!/bin/bash
 set -eu
 if [ "\${1:-}" = "--version" ]; then
   echo 'comet ${version}'
