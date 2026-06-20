@@ -26,7 +26,7 @@ const block = `  program
           allDetected: true,
           initHarness: true,
           adapter: mode === "playwright" ? "playwright" : "memory",
-          installBrowsers: mode === "playwright" && !commandOptions.skipBrowsers
+          installBrowsers: false
         };
 
         if (!options.json && !commandOptions.dryRun) {
@@ -36,6 +36,10 @@ const block = `  program
 
         const report = await installComet(root, setupOptions);
         const harness = await maybeInitHarness(root, setupOptions);
+        if (mode === "playwright" && !commandOptions.skipBrowsers && !commandOptions.dryRun) {
+          const command = await installPlaywrightBrowsers(root);
+          harness.browsers = { requested: true, installed: true, command };
+        }
         if (options.json) {
           process.stdout.write(JSON.stringify({ ...report, harness }, null, 2) + "\\n");
           return;
@@ -49,8 +53,16 @@ const block = `  program
 if (!comet.includes('.command("setup")')) {
   if (!comet.includes(anchor)) throw new Error("Comet command anchor missing");
   comet = comet.replace(anchor, block + anchor);
-  await writeFile(cometPath, comet);
+} else {
+  comet = comet.replace(
+    '          installBrowsers: mode === "playwright" && !commandOptions.skipBrowsers\n',
+    '          installBrowsers: false\n'
+  );
+  const old = '        const harness = await maybeInitHarness(root, setupOptions);\n        if (options.json) {';
+  const replacement = '        const harness = await maybeInitHarness(root, setupOptions);\n        if (mode === "playwright" && !commandOptions.skipBrowsers && !commandOptions.dryRun) {\n          const command = await installPlaywrightBrowsers(root);\n          harness.browsers = { requested: true, installed: true, command };\n        }\n        if (options.json) {';
+  if (comet.includes(old)) comet = comet.replace(old, replacement);
 }
+await writeFile(cometPath, comet);
 
 const readmePath = "README.md";
 let readme = await readFile(readmePath, "utf8");
