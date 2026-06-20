@@ -50,6 +50,48 @@ export function registerCometCommands(
   withErrors: (action: (...args: any[]) => Promise<void>) => (...args: any[]) => Promise<void>,
   getOptions: () => GlobalOptions
 ): void {
+  program
+    .command("setup")
+    .description("Initialize Harness and Comet integration for all detected local platforms")
+    .requiredOption("--mode <runtime|playwright>", "project mode")
+    .option("--test-dir <path>", "Playwright test directory", "tests")
+    .option("--skip-install", "write Harness files without running dependency install")
+    .option("--skip-browsers", "skip Playwright browser installation")
+    .option("--yes", "accept non-interactive defaults")
+    .option("--dry-run", "show the write plan without changing files")
+    .option(
+      "--force",
+      "overwrite files already managed by harness-comet or files explicitly allowed by the installer"
+    )
+    .action(
+      withErrors(async (commandOptions) => {
+        const options = getOptions();
+        const root = options.root ?? process.cwd();
+        const mode = commandOptions.mode as "runtime" | "playwright";
+        const setupOptions = {
+          ...commandOptions,
+          allDetected: true,
+          initHarness: true,
+          adapter: mode === "playwright" ? "playwright" : "memory",
+          installBrowsers: mode === "playwright" && !commandOptions.skipBrowsers
+        };
+
+        if (!options.json && !commandOptions.dryRun) {
+          const shouldContinue = await ensureCometCliForInstall(root, setupOptions);
+          if (!shouldContinue) return;
+        }
+
+        const report = await installComet(root, setupOptions);
+        const harness = await maybeInitHarness(root, setupOptions);
+        if (options.json) {
+          process.stdout.write(JSON.stringify({ ...report, harness }, null, 2) + "\n");
+          return;
+        }
+        process.stdout.write(formatInstallReport(report, harness));
+        process.exitCode = report.comet.installed && report.comet.supported ? 0 : 6;
+      })
+    );
+
   const comet = program.command("comet").description("Optional Comet integration commands");
   const hook = comet.command("hook").description("Comet phase validators");
   hook
