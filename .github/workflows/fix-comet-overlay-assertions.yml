@@ -1,44 +1,27 @@
-name: Fix Comet overlay assertions
+name: Validate Comet overlay assertions
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: write
-
 jobs:
-  fix:
+  test:
     if: ${{ github.head_ref == 'fix/comet-overlay-integration-assertions' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: fix/comet-overlay-integration-assertions
-          fetch-depth: 0
 
-      - name: Update outdated assertions
-        run: |
-          python - <<'PY'
-          from pathlib import Path
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.6.12
 
-          path = Path("test/comet-install.integration.test.ts")
-          text = path.read_text()
-          replacements = {
-              '    expect(openSkill).toContain("Managed by @hapergg/harness-comet");\n': '',
-              '    expect(openSkill).toContain("### 4. Playwright Impact Analysis");': '    expect(openSkill).toContain("### Harness/Playwright Impact Analysis");',
-              '    expect(designSkill).toContain("### 3. Playwright Authoring Plan");': '    expect(designSkill).toContain("### Harness/Playwright Authoring Plan");',
-              '      "Do not create, update, retire, or redesign Playwright assets during Verify."': '      "Do not create, update, retire, redesign, or repair Playwright assets during Verify."',
-          }
-          for old, new in replacements.items():
-              if old not in text:
-                  raise SystemExit(f"missing expected assertion: {old}")
-              text = text.replace(old, new)
-          path.write_text(text)
-          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add test/comet-install.integration.test.ts
-          git commit -m "test(comet): align install assertions with overlay headings"
-          git push
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test
