@@ -7,7 +7,13 @@ export * from "./compatibility/version.js";
 export * from "./discovery/comet-cli.js";
 export * from "./discovery/skill-root.js";
 export * from "./diff.js";
-export * from "./hooks.js";
+export {
+  runCometDesignHook,
+  runCometBuildHook,
+  findUnauthorizedPlaywrightCreates
+} from "./hooks.js";
+export type { CometHookReport } from "./hooks.js";
+export { runCometOpenHook } from "./hooks-open.js";
 export * from "./install.js";
 export * from "./manifest.js";
 export * from "./platforms/registry.js";
