@@ -1,5 +1,16 @@
 # @hapergg/harness-comet-playwright
 
+## 0.2.0
+
+### Minor Changes
+
+- update comet skill overlay
+
+### Patch Changes
+
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.0
+
 ## 0.1.5
 
 ### Patch Changes

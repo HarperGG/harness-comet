@@ -1,5 +1,11 @@
 # @hapergg/harness-comet-schema
 
+## 0.2.0
+
+### Minor Changes
+
+- update comet skill overlay
+
 ## 0.1.5
 
 ### Patch Changes
