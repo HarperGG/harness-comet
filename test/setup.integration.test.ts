@@ -7,10 +7,13 @@ import { execa } from "execa";
 const bin = path.resolve("packages/cli/src/dev-bin.ts");
 const cli = ["tsx", bin];
 const originalBin = process.env.HARNESS_COMET_COMET_BIN;
+const originalBrowserInstallBin = process.env.HARNESS_COMET_PLAYWRIGHT_INSTALL_BIN;
 
 afterEach(() => {
   if (originalBin === undefined) delete process.env.HARNESS_COMET_COMET_BIN;
   else process.env.HARNESS_COMET_COMET_BIN = originalBin;
+  if (originalBrowserInstallBin === undefined) delete process.env.HARNESS_COMET_PLAYWRIGHT_INSTALL_BIN;
+  else process.env.HARNESS_COMET_PLAYWRIGHT_INSTALL_BIN = originalBrowserInstallBin;
 });
 
 async function createFakeComet(): Promise<string> {
@@ -47,11 +50,29 @@ exit 1
   return script;
 }
 
+async function createFakeBrowserInstaller(): Promise<string> {
+  const root = await mkdtemp(path.join(tmpdir(), "fake-playwright-install-"));
+  const script = path.join(root, "install-browsers");
+  await writeFile(
+    script,
+    `#!/bin/sh
+set -eu
+project_root="$1"
+printf 'chromium\n' > "$project_root/playwright-browser-installed.txt"
+exit 0
+`,
+    "utf8"
+  );
+  await chmod(script, 0o755);
+  return script;
+}
+
 describe("unified setup command", () => {
   it("initializes Playwright Harness and Comet for detected platforms without --platform", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "harness-comet-setup-"));
     await mkdir(path.join(root, ".codex"), { recursive: true });
+    await writeFile(path.join(root, ".gitignore"), "node_modules\nplaywright-report\n", "utf8");
 
     const result = await execa("pnpm", [
       ...cli,
@@ -77,5 +98,43 @@ describe("unified setup command", () => {
     );
     expect(openSkill).toContain("HARNESS-COMET:BEGIN open-impact");
     expect(openSkill).toContain("playwright-impact-analysis");
+
+    const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toContain("node_modules\n");
+    expect(gitignore).toContain("playwright-report\n");
+    expect(gitignore).toContain("test-results\n");
+    expect(gitignore.match(/^playwright-report$/gm)).toHaveLength(1);
+  });
+
+  it("prints a user-facing browser install command for Playwright setup", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
+    process.env.HARNESS_COMET_PLAYWRIGHT_INSTALL_BIN = await createFakeBrowserInstaller();
+    const root = await mkdtemp(path.join(tmpdir(), "harness-comet-setup-browser-command-"));
+    await mkdir(path.join(root, ".codex"), { recursive: true });
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "target", private: true, packageManager: "pnpm@10.0.0" }, null, 2),
+      "utf8"
+    );
+
+    const result = await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "setup",
+      "--mode",
+      "playwright",
+      "--test-dir",
+      "tests",
+      "--skip-install",
+      "--yes"
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("BROWSER_COMMAND pnpm exec playwright install chromium");
+    expect(result.stdout).not.toContain("--filter @hapergg/harness-comet-adapter-playwright");
+    await expect(readFile(path.join(root, "playwright-browser-installed.txt"), "utf8")).resolves.toBe(
+      "chromium\n"
+    );
   });
 });

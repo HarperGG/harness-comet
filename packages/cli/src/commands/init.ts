@@ -96,6 +96,13 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   await fs.mkdir(path.join(root, testDir, "support"), { recursive: true });
   await fs.mkdir(path.join(root, "docs", "testing"), { recursive: true });
 
+  await ensureGitignoreEntries(
+    path.join(root, ".gitignore"),
+    ["test-results", "playwright-report"],
+    created,
+    skipped
+  );
+
   await writeFileSafe(
     path.join(root, "harness-comet.config.ts"),
     playwrightHarnessCometConfigTemplate(testDir),
@@ -402,6 +409,35 @@ function formatCommand(command: string, args: string[]): string {
 
 function normalizePath(value: string): string {
   return value.split(path.sep).join("/");
+}
+
+async function ensureGitignoreEntries(
+  file: string,
+  entries: string[],
+  created: string[],
+  skipped: string[]
+): Promise<void> {
+  let current = "";
+  try {
+    current = await fs.readFile(file, "utf8");
+  } catch {
+    current = "";
+  }
+
+  const lines = current.split(/\r?\n/);
+  const existing = new Set(lines.map((line) => line.trim()).filter(Boolean));
+  const missing = entries.filter((entry) => !existing.has(entry));
+  if (missing.length === 0) {
+    skipped.push(".gitignore");
+    return;
+  }
+
+  const next =
+    current.length === 0
+      ? `${missing.join("\n")}\n`
+      : `${current}${current.endsWith("\n") ? "" : "\n"}${missing.join("\n")}\n`;
+  await fs.writeFile(file, next, "utf8");
+  created.push(".gitignore");
 }
 
 async function writeFileSafe(

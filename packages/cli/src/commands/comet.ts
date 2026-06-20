@@ -1,4 +1,9 @@
-import { HarnessError, mapErrorToExitCode } from "@hapergg/harness-comet-core";
+import {
+  HarnessError,
+  detectPackageManager,
+  mapErrorToExitCode,
+  type PackageManagerName
+} from "@hapergg/harness-comet-core";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -588,29 +593,34 @@ async function maybeInstallBrowsers(
 }
 
 async function installPlaywrightBrowsers(projectRoot: string): Promise<string> {
+  const manager = await detectPackageManager(projectRoot);
+  const { command, args } = playwrightBrowserInstallCommand(manager);
+  const displayCommand = `${command} ${args.join(" ")}`;
   const override = process.env.HARNESS_COMET_PLAYWRIGHT_INSTALL_BIN;
   if (override) {
     await execFileAsync(override, [projectRoot], {
       cwd: projectRoot,
       maxBuffer: 10 * 1024 * 1024
     });
-    return override;
+    return displayCommand;
   }
-
-  const command = "pnpm";
-  const args = [
-    "--filter",
-    "@hapergg/harness-comet-adapter-playwright",
-    "exec",
-    "playwright",
-    "install",
-    "chromium"
-  ];
   await execFileAsync(command, args, {
-    cwd: process.cwd(),
+    cwd: projectRoot,
     maxBuffer: 50 * 1024 * 1024
   });
-  return `${command} ${args.join(" ")}`;
+  return displayCommand;
+}
+
+function playwrightBrowserInstallCommand(
+  manager: PackageManagerName
+): { command: string; args: string[] } {
+  if (manager === "yarn") {
+    return { command: "yarn", args: ["playwright", "install", "chromium"] };
+  }
+  if (manager === "npm") {
+    return { command: "npm", args: ["exec", "playwright", "install", "chromium"] };
+  }
+  return { command: "pnpm", args: ["exec", "playwright", "install", "chromium"] };
 }
 
 async function fileExists(filePath: string): Promise<boolean> {

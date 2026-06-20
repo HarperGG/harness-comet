@@ -97,6 +97,25 @@ describe("init --mode playwright", () => {
     expect(config).toContain('name: "chromium"');
   });
 
+  it("adds Playwright output directories to .gitignore", async () => {
+    const root = await tempProject();
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "init",
+      "--mode",
+      "playwright",
+      "--skip-install",
+      "--skip-browsers",
+      "--yes"
+    ]);
+
+    const gitignore = await fs.readFile(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toContain("test-results");
+    expect(gitignore).toContain("playwright-report");
+  });
+
   it("writes an incident-friendly example spec and support helpers", async () => {
     const root = await tempProject();
     await execa("pnpm", [
