@@ -1,6 +1,6 @@
 export * from "./types.js";
 export * from "./assets.js";
-export * from "./archive-check.js";
+export { archiveCheckCometChange } from "./archive-check-entry.js";
 export * from "./bind.js";
 export * from "./change.js";
 export * from "./compatibility/version.js";
