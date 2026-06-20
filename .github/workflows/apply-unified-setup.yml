@@ -17,122 +17,19 @@ jobs:
           ref: feat/unified-playwright-comet-setup
           fetch-depth: 0
 
-      - name: Add setup command and documentation
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: node scripts/apply-unified-setup.mjs
+
+      - name: Commit generated changes
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          comet = Path("packages/cli/src/commands/comet.ts")
-          text = comet.read_text()
-          anchor = '''  const comet = program.command("comet").description("Optional Comet integration commands");\n'''
-          block = '''  program\n    .command("setup")\n    .description("Initialize Harness and Comet integration for all detected local platforms")\n    .requiredOption("--mode <runtime|playwright>", "project mode")\n    .option("--test-dir <path>", "Playwright test directory", "tests")\n    .option("--skip-install", "write Harness files without running dependency install")\n    .option("--skip-browsers", "skip Playwright browser installation")\n    .option("--yes", "accept non-interactive defaults")\n    .option("--dry-run", "show the write plan without changing files")\n    .option(\n      "--force",\n      "overwrite files already managed by harness-comet or files explicitly allowed by the installer"\n    )\n    .action(\n      withErrors(async (commandOptions) => {\n        const options = getOptions();\n        const root = options.root ?? process.cwd();\n        const mode = commandOptions.mode as "runtime" | "playwright";\n        const setupOptions = {\n          ...commandOptions,\n          allDetected: true,\n          initHarness: true,\n          adapter: mode === "playwright" ? "playwright" : "memory",\n          installBrowsers: mode === "playwright" && !commandOptions.skipBrowsers\n        };\n\n        if (!options.json && !commandOptions.dryRun) {\n          const shouldContinue = await ensureCometCliForInstall(root, setupOptions);\n          if (!shouldContinue) return;\n        }\n\n        const report = await installComet(root, setupOptions);\n        const harness = await maybeInitHarness(root, setupOptions);\n        if (options.json) {\n          process.stdout.write(`${JSON.stringify({ ...report, harness }, null, 2)}\\n`);\n          return;\n        }\n        process.stdout.write(formatInstallReport(report, harness));\n        process.exitCode = report.comet.installed && report.comet.supported ? 0 : 6;\n      })\n    );\n\n'''
-          if anchor not in text:
-              raise SystemExit("comet registration anchor missing")
-          if '.command("setup")' not in text:
-              text = text.replace(anchor, block + anchor, 1)
-              comet.write_text(text)
-
-          readme = Path("README.md")
-          text = readme.read_text()
-          old = '''在业务项目中初始化 Playwright 模式：\n\n```bash\npnpm exec harness-comet init \\\n  --mode playwright \\\n  --test-dir tests \\\n  --yes\n```\n'''
-          new = '''在业务项目根目录一键初始化 Playwright Harness 和 Comet 接入：\n\n```bash\npnpm exec harness-comet setup --mode playwright\n```\n\n该命令会自动检测当前项目中的本地 agent 平台，并同时完成：\n\n- 初始化 Playwright Harness；\n- 检查或安装 Comet CLI；\n- 初始化 Comet 项目；\n- 安装 Harness/Playwright 版 Comet skills；\n- 安装 Playwright 依赖和 Chromium；\n- 为所有检测到的项目本地平台写入接入文件。\n\n用于 CI 或非交互环境：\n\n```bash\npnpm exec harness-comet setup --mode playwright --yes\n```\n'''
-          if old not in text:
-              raise SystemExit("README quick-start block missing")
-          text = text.replace(old, new, 1)
-
-          old_comet = '''### 首次接入\n\n推荐直接运行交互式安装：\n\n```bash\npnpm exec harness-comet comet install\n```\n'''
-          new_comet = '''### 首次接入\n\n推荐使用统一初始化命令，不需要指定 agent 平台：\n\n```bash\npnpm exec harness-comet setup --mode playwright\n```\n\n该命令会自动检测并接入所有项目本地平台。只需要安装、修复或重新同步 Comet 接入时，再使用底层命令：\n\n```bash\npnpm exec harness-comet comet install\n```\n'''
-          if old_comet not in text:
-              raise SystemExit("README Comet block missing")
-          readme.write_text(text.replace(old_comet, new_comet, 1))
-
-          test = Path("test/setup.integration.test.ts")
-          test.write_text(r'''import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
-import { execa } from "execa";
-
-const bin = path.resolve("packages/cli/src/dev-bin.ts");
-const cli = ["tsx", bin];
-const originalBin = process.env.HARNESS_COMET_COMET_BIN;
-
-afterEach(() => {
-  if (originalBin === undefined) delete process.env.HARNESS_COMET_COMET_BIN;
-  else process.env.HARNESS_COMET_COMET_BIN = originalBin;
-});
-
-async function createFakeComet(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "fake-comet-setup-"));
-  const script = path.join(root, "comet");
-  await writeFile(
-    script,
-    `#!/bin/sh
-set -eu
-if [ "\${1:-}" = "--version" ]; then
-  echo 'comet 0.3.8'
-  exit 0
-fi
-if [ "\${1:-}" = "init" ]; then
-  project_root=""
-  for arg in "$@"; do project_root="$arg"; done
-  mkdir -p "$project_root/.codex/skills/comet-open" "$project_root/.codex/skills/comet-design" "$project_root/.codex/skills/comet-build" "$project_root/.codex/skills/comet-verify" "$project_root/.codex/skills/comet-archive" "$project_root/.codex/skills/comet/scripts"
-  printf '# comet-open\n' > "$project_root/.codex/skills/comet-open/SKILL.md"
-  printf '# comet-design\n' > "$project_root/.codex/skills/comet-design/SKILL.md"
-  printf '# comet-build\n' > "$project_root/.codex/skills/comet-build/SKILL.md"
-  printf '# comet-verify\n' > "$project_root/.codex/skills/comet-verify/SKILL.md"
-  printf '# comet-archive\n' > "$project_root/.codex/skills/comet-archive/SKILL.md"
-  printf '#!/bin/sh\n' > "$project_root/.codex/skills/comet/scripts/comet-state.sh"
-  printf '#!/bin/sh\n' > "$project_root/.codex/skills/comet/scripts/comet-guard.sh"
-  printf '#!/bin/sh\n' > "$project_root/.codex/skills/comet/scripts/comet-archive.sh"
-  chmod +x "$project_root/.codex/skills/comet/scripts/"*.sh
-  exit 0
-fi
-exit 1
-`,
-    "utf8"
-  );
-  await chmod(script, 0o755);
-  return script;
-}
-
-describe("unified setup command", () => {
-  it("initializes Playwright Harness and Comet for detected platforms without --platform", async () => {
-    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
-    const root = await mkdtemp(path.join(tmpdir(), "harness-comet-setup-"));
-    await mkdir(path.join(root, ".codex"), { recursive: true });
-
-    const result = await execa("pnpm", [
-      ...cli,
-      "--root",
-      root,
-      "setup",
-      "--mode",
-      "playwright",
-      "--test-dir",
-      "tests",
-      "--skip-install",
-      "--skip-browsers",
-      "--yes"
-    ]);
-
-    expect(result.exitCode).toBe(0);
-    const config = await readFile(path.join(root, "harness-comet.config.ts"), "utf8");
-    expect(config).toContain('mode: "playwright"');
-
-    const openSkill = await readFile(
-      path.join(root, ".codex", "skills", "comet-open", "SKILL.md"),
-      "utf8"
-    );
-    expect(openSkill).toContain("HARNESS-COMET:BEGIN open-impact");
-    expect(openSkill).toContain("playwright-impact-analysis");
-  });
-});
-''')
-          PY
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/cli/src/commands/comet.ts README.md test/setup.integration.test.ts
+          git add packages/cli/src/commands/comet.ts README.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
           git commit -m "feat(cli): add unified Harness and Comet setup command"
           git push
