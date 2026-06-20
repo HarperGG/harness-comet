@@ -16,7 +16,7 @@
     "pack:all": "node scripts/pack-all.mjs",
     "pack:dry-run": "pnpm pack:all",
     "test:consumer": "node scripts/test-packed-consumer.mjs",
-    "changeset": "changeset",
+    "changeset": "changeset && changeset version",
     "version-packages": "changeset version",
     "publish": "pnpm changeset publish",
     "release": "pnpm release:check && pnpm pack:all && pnpm test:consumer && changeset publish"

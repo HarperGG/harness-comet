@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
-
+import { HARNESS_COMET_PLAYWRIGHT_DEPENDENCY } from "../packages/cli/src/package-info.js";
 const bin = path.resolve("packages/cli/src/dev-bin.ts");
 const cli = ["tsx", bin];
 
@@ -66,7 +66,7 @@ describe("init --mode playwright", () => {
       peerDependencies?: Record<string, string>;
     };
     expect(pkg.devDependencies["@playwright/test"]).toBe("^1.60.0");
-    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).toBe("^0.1.0");
+    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).toBe(HARNESS_COMET_PLAYWRIGHT_DEPENDENCY);
     expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toMatch(/^file:/);
     expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toContain("workspace:");
     expect(pkg.devDependencies).not.toHaveProperty(legacyPlaywrightPackage);
