@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-adapter-playwright
 
+## 0.2.2
+
+### Patch Changes
+
+- export HTTPS_PROXY=http://127.0.0.1:7892
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.2
+  - @hapergg/harness-comet-sdk@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes
