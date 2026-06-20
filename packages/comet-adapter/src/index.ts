@@ -20,7 +20,7 @@ export * from "./platforms/registry.js";
 export * from "./platforms/detector.js";
 export * from "./playwright-impact-policy.js";
 export * from "./project-mode.js";
-export * from "./skills.js";
+export * from "./skill-catalog.js";
 export * from "./sync.js";
 export * from "./uninstall.js";
 export * from "./verify.js";
