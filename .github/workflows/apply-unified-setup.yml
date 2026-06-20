@@ -1,35 +1,28 @@
-name: Apply unified setup command
+name: Validate unified setup command
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: write
-
 jobs:
-  apply:
+  test:
     if: ${{ github.head_ref == 'feat/unified-playwright-comet-setup' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feat/unified-playwright-comet-setup
-          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8.6.12
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
 
-      - run: node scripts/apply-unified-setup.mjs
-
-      - name: Commit generated changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/cli/src/commands/comet.ts README.md
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "feat(cli): add unified Harness and Comet setup command"
-          git push
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm exec vitest run test/setup.integration.test.ts
+      - run: pnpm test
