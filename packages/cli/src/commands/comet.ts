@@ -73,7 +73,7 @@ export function registerCometCommands(
           allDetected: true,
           initHarness: true,
           adapter: mode === "playwright" ? "playwright" : "memory",
-          installBrowsers: mode === "playwright" && !commandOptions.skipBrowsers
+          installBrowsers: false
         };
 
         if (!options.json && !commandOptions.dryRun) {
@@ -83,6 +83,10 @@ export function registerCometCommands(
 
         const report = await installComet(root, setupOptions);
         const harness = await maybeInitHarness(root, setupOptions);
+        if (mode === "playwright" && !commandOptions.skipBrowsers && !commandOptions.dryRun) {
+          const command = await installPlaywrightBrowsers(root);
+          harness.browsers = { requested: true, installed: true, command };
+        }
         if (options.json) {
           process.stdout.write(JSON.stringify({ ...report, harness }, null, 2) + "\n");
           return;
