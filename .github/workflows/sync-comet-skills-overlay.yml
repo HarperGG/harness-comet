@@ -24,9 +24,7 @@ jobs:
       - name: Generate managed skills from upstream
         id: generate
         continue-on-error: true
-        run: |
-          sed -i 's/### 2\. 更新计划状态并提供 Plan-Ready 暂停点/### 2. 更新计划状态并提供 plan-ready 暂停点/' scripts/sync-comet-managed-skills.mjs
-          node scripts/sync-comet-managed-skills.mjs > overlay-sync.log 2>&1
+        run: node scripts/run-comet-skill-sync.mjs > overlay-sync.log 2>&1
 
       - name: Upload sync output
         if: always()
