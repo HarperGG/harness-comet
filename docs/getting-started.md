@@ -48,7 +48,7 @@ pnpm exec harness-comet setup --mode playwright
 
 ## 4. 支持的 Agent 平台
 
-统一 setup/Comet 接入支持：
+统一 setup、Comet 接入和独立 `skill install` 均支持：
 
 | Agent | Comet skills | 项目指令入口 |
 |---|---|---|
@@ -66,7 +66,7 @@ Harness-Comet 不会复制整份规则到四个平台。平台入口只引用统
 
 已有入口文件会保留用户内容，只创建或替换 Harness-Comet managed block。
 
-> `harness-comet skill install` 是独立 skill 安装命令，目前只支持 Codex 和 Claude Code。它与统一 setup 的四平台 Comet 接入不是同一能力。
+独立 Skill 安装未指定平台时，会检测 `.codex/`、`.claude/`、`.cursor/` 和 `.github/`，并安装到所有检测到的平台。
 
 ## 5. 已有 Playwright 项目
 
