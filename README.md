@@ -61,6 +61,31 @@ pnpm exec harness-comet setup --mode playwright
 
 人工首次接入建议保留交互过程，不要默认加 `--yes`。
 
+### 只初始化 Playwright Harness
+
+不需要接入 Comet、Agent skills、`.agents` 项目知识文件或 Agent 原生入口时，使用：
+
+```bash
+pnpm exec harness-comet init --mode playwright
+```
+
+该命令只生成 Playwright Harness 所需的配置、测试目录、示例测试和测试文档。
+
+常用选项：
+
+```bash
+pnpm exec harness-comet init \
+  --mode playwright \
+  --test-dir tests/harness \
+  --skip-install \
+  --skip-browsers
+```
+
+| 命令 | Playwright Harness | Comet | `.agents` 和 Agent 入口 |
+|---|---|---|---|
+| `init --mode playwright` | 是 | 否 | 否 |
+| `setup --mode playwright` | 是 | 是 | 是 |
+
 初始化后：
 
 ```bash
