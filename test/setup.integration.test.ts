@@ -68,13 +68,14 @@ exit 0
 }
 
 describe("unified setup command", () => {
-  it("initializes Playwright Harness and Comet for detected platforms without --platform", async () => {
+  it("initializes Playwright Harness, Comet, and shared agent guidance", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "harness-comet-setup-"));
     await mkdir(path.join(root, ".codex"), { recursive: true });
     await writeFile(path.join(root, ".gitignore"), "node_modules\nplaywright-report\n", "utf8");
+    await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
 
-    const result = await execa("pnpm", [
+    const command = [
       ...cli,
       "--root",
       root,
@@ -86,7 +87,8 @@ describe("unified setup command", () => {
       "--skip-install",
       "--skip-browsers",
       "--yes"
-    ]);
+    ];
+    const result = await execa("pnpm", command);
 
     expect(result.exitCode).toBe(0);
     const config = await readFile(path.join(root, "harness-comet.config.ts"), "utf8");
@@ -98,6 +100,21 @@ describe("unified setup command", () => {
     );
     expect(openSkill).toContain("HARNESS-COMET:BEGIN open-impact");
     expect(openSkill).toContain("playwright-impact-analysis");
+
+    const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
+    const structure = await readFile(path.join(root, ".agents", "structure.md"), "utf8");
+    expect(rules).toContain("# Project Rules");
+    expect(structure).toContain("# Project Structure");
+
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(agents).toContain("# Existing instructions");
+    expect(agents).toContain("HARNESS-COMET:BEGIN project-context");
+    expect(agents).toContain(".agents/rules.md");
+    expect(agents).toContain(".agents/structure.md");
+
+    await execa("pnpm", command);
+    const agentsAfterSecondSetup = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(agentsAfterSecondSetup.match(/HARNESS-COMET:BEGIN project-context/g)).toHaveLength(1);
 
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");
     expect(gitignore).toContain("node_modules\n");
