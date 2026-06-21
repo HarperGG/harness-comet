@@ -13,7 +13,9 @@ export async function listPackagedSkills(): Promise<string[]> {
     try {
       await fs.access(path.join(root, entry.name, "SKILL.md"));
       names.push(entry.name);
-    } catch {}
+    } catch {
+      // Ignore catalog entries that are not valid packaged skills.
+    }
   }
   return names.sort();
 }
@@ -85,7 +87,9 @@ async function resolveTargets(projectRoot: string, platformIds?: string[]) {
     try {
       await fs.access(path.join(projectRoot, platform.platformRoot));
       targets.push({ platformId: platform.id, skillRoot: path.join(projectRoot, platform.skillRoot) });
-    } catch {}
+    } catch {
+      // Platform roots are optional; absence means the platform is not installed in this project.
+    }
   }
   if (targets.length === 0) throw new HarnessError({ code: "SKILL_TARGETS_NOT_FOUND", category: "selection", message: "No project-local agent platform was detected. Use --platform <id>." });
   return targets.sort((a, b) => a.platformId.localeCompare(b.platformId));

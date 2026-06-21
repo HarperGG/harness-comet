@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-adapter-playwright
 
+## 0.2.3
+
+### Patch Changes
+
+- update readme
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.3
+  - @hapergg/harness-comet-sdk@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes

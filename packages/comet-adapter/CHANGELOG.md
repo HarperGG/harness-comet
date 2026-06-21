@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-comet-adapter
 
+## 0.2.3
+
+### Patch Changes
+
+- update readme
+- Updated dependencies
+  - @hapergg/harness-comet-core@0.2.3
+  - @hapergg/harness-comet-schema@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes
