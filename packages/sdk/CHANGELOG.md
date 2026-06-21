@@ -1,5 +1,13 @@
 # @hapergg/harness-comet-sdk
 
+## 0.2.4
+
+### Patch Changes
+
+- add agents
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.4
+
 ## 0.2.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @hapergg/harness-comet-schema
 
+## 0.2.4
+
+### Patch Changes
+
+- add agents
+
 ## 0.2.3
 
 ### Patch Changes
