@@ -117,7 +117,7 @@ Runtime 当前属于高级用法，文档和业务约定少于 Playwright 模式
 
 ## 支持的 Agent 平台
 
-统一 setup 和 Comet 接入支持：
+统一 setup、Comet 接入和独立 Skill 安装均支持：
 
 | Agent | Skills 目录 | 项目指令入口 |
 |---|---|---|
@@ -134,8 +134,6 @@ Runtime 当前属于高级用法，文档和业务约定少于 Playwright 模式
 ```
 
 已有入口内容会被保留，Harness-Comet 只维护自己的 managed block。
-
-> `harness-comet skill install` 是独立 Skill 安装命令，目前只支持 Codex 和 Claude Code。不要与统一 setup 的四平台接入混淆。
 
 ## 项目知识文件
 
@@ -255,11 +253,23 @@ pnpm exec harness-comet skill list
 pnpm exec harness-comet skill install playwright-authoring-decision
 ```
 
-目前仅支持：
+支持：
 
 ```text
 codex
 claude
+cursor
+github-copilot
+```
+
+显式安装到 Cursor 或 GitHub Copilot：
+
+```bash
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform cursor
+
+pnpm exec harness-comet skill install playwright-authoring-decision \
+  --platform github-copilot
 ```
 
 完整说明见 [独立 Skill 安装](docs/skill-installation.md)。
