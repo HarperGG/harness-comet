@@ -1,6 +1,19 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+const TARGETS = [
+  { id: "codex", skillRoot: ".codex/skills", entryPath: "AGENTS.md" },
+  { id: "claude", skillRoot: ".claude/skills", entryPath: "CLAUDE.md" },
+  { id: "cursor", skillRoot: ".cursor/skills", entryPath: ".cursor/rules/harness-comet.mdc" },
+  {
+    id: "github-copilot",
+    skillRoot: ".github/skills",
+    entryPath: ".github/copilot-instructions.md"
+  }
+] as const;
+
+type GuidanceTarget = (typeof TARGETS)[number];
+
 export async function initializeProjectGuidance(projectRoot: string): Promise<void> {
   const selected = await detectSupportedAgents(projectRoot);
   if (selected.length === 0) return;
@@ -17,13 +30,12 @@ export async function initializeProjectGuidance(projectRoot: string): Promise<vo
   );
 }
 
-async function detectSupportedAgents(projectRoot: string): Promise<string[]> {
-  const roots = [".codex/skills", ".claude/skills", ".cursor/skills", ".github/skills"];
-  const selected: string[] = [];
-  for (const root of roots) {
+async function detectSupportedAgents(projectRoot: string): Promise<GuidanceTarget[]> {
+  const selected: GuidanceTarget[] = [];
+  for (const target of TARGETS) {
     try {
-      await fs.access(path.join(projectRoot, root, "comet-archive", "SKILL.md"));
-      selected.push(root);
+      await fs.access(path.join(projectRoot, target.skillRoot, "comet-archive", "SKILL.md"));
+      selected.push(target);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
