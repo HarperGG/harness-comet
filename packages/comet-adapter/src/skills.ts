@@ -6,7 +6,7 @@ import {
   listPackagedSkills
 } from "./skill-catalog.js";
 
-const SUPPORTED_PLATFORMS = new Set(["codex", "claude"]);
+const SUPPORTED_PLATFORMS = new Set(["codex", "claude", "cursor", "github-copilot"]);
 
 export const listAvailableSkills = listPackagedSkills;
 
@@ -23,7 +23,7 @@ export async function installSkill(options: {
       throw new HarnessError({
         code: "SKILL_PLATFORM_UNSUPPORTED",
         category: "selection",
-        message: `Standalone skill installation currently supports only codex and claude: ${id}`
+        message: `Standalone skill installation currently supports only codex, claude, cursor, and github-copilot: ${id}`
       });
     }
   }
@@ -36,7 +36,7 @@ export async function installSkill(options: {
     throw new HarnessError({
       code: "SKILL_TARGETS_NOT_FOUND",
       category: "selection",
-      message: "No Codex or Claude project directory was detected. Use --platform codex or --platform claude."
+      message: "No Codex, Claude, Cursor, or GitHub Copilot project directory was detected. Use --platform codex, --platform claude, --platform cursor, or --platform github-copilot."
     });
   }
 
@@ -45,7 +45,12 @@ export async function installSkill(options: {
 
 async function detectSupportedPlatforms(projectRoot: string): Promise<string[]> {
   const detected: string[] = [];
-  for (const [id, directory] of [["codex", ".codex"], ["claude", ".claude"]] as const) {
+  for (const [id, directory] of [
+    ["codex", ".codex"],
+    ["claude", ".claude"],
+    ["cursor", ".cursor"],
+    ["github-copilot", ".github"]
+  ] as const) {
     try {
       await fs.access(path.join(projectRoot, directory));
       detected.push(id);
