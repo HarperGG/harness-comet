@@ -8,6 +8,9 @@ packages/comet-adapter/assets/shared-skills/
 
 该目录同时作为源码目录和 npm 发布资产，不需要额外复制到根目录或执行二次打包同步。
 
+> 本文说明的是 `harness-comet skill install` 独立安装能力。
+> 统一的 `harness-comet setup --mode playwright` / `harness-comet comet install` 接入流程支持 Codex、Claude Code、Cursor 和 GitHub Copilot，二者的平台范围不同。
+
 ## 查看可安装 Skill
 
 ```bash
@@ -38,6 +41,8 @@ pnpm exec harness-comet skill install playwright-authoring-decision
 
 - `codex`
 - `claude`
+
+Cursor 和 GitHub Copilot 应通过统一 setup/Comet 接入流程安装，不要使用本命令手工模拟平台目录。
 
 ## 显式指定平台
 
@@ -73,3 +78,5 @@ pnpm exec harness-comet skill install playwright-authoring-decision \
 ```
 
 内容已经一致时，安装操作为 noop。
+
+完整项目接入请参考 [Harness-Comet 接入手册](./getting-started.md)。
