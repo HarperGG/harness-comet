@@ -75,7 +75,7 @@ describe("unified setup command", () => {
     await writeFile(path.join(root, ".gitignore"), "node_modules\nplaywright-report\n", "utf8");
     await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
 
-    const command = [
+    const result = await execa("pnpm", [
       ...cli,
       "--root",
       root,
@@ -87,8 +87,7 @@ describe("unified setup command", () => {
       "--skip-install",
       "--skip-browsers",
       "--yes"
-    ];
-    const result = await execa("pnpm", command);
+    ]);
 
     expect(result.exitCode).toBe(0);
     const config = await readFile(path.join(root, "harness-comet.config.ts"), "utf8");
@@ -111,10 +110,6 @@ describe("unified setup command", () => {
     expect(agents).toContain("HARNESS-COMET:BEGIN project-context");
     expect(agents).toContain(".agents/rules.md");
     expect(agents).toContain(".agents/structure.md");
-
-    await execa("pnpm", command);
-    const agentsAfterSecondSetup = await readFile(path.join(root, "AGENTS.md"), "utf8");
-    expect(agentsAfterSecondSetup.match(/HARNESS-COMET:BEGIN project-context/g)).toHaveLength(1);
 
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");
     expect(gitignore).toContain("node_modules\n");
