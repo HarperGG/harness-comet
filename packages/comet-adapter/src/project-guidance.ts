@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { writeFileAtomic } from "./manifest.js";
 
 export async function initializeProjectGuidance(projectRoot: string): Promise<void> {
   const selected = await detectSupportedAgents(projectRoot);
@@ -37,6 +36,14 @@ async function writeIfMissing(filePath: string, content: string): Promise<void> 
     await fs.access(filePath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    await writeFileAtomic(filePath, content, 0o644);
+    await writeAtomic(filePath, content);
   }
+}
+
+async function writeAtomic(filePath: string, content: string): Promise<void> {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(tempPath, content, { mode: 0o644, encoding: "utf8" });
+  await fs.chmod(tempPath, 0o644);
+  await fs.rename(tempPath, filePath);
 }
