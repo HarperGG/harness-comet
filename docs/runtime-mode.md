@@ -32,7 +32,9 @@ init → validate → scenario list → run → JSON result
 pnpm exec harness-comet setup --mode playwright
 ```
 
-## 初始化
+## 初始化方式
+
+只初始化 Harness Runtime：
 
 ```bash
 pnpm exec harness-comet init \
@@ -41,7 +43,20 @@ pnpm exec harness-comet init \
   --yes
 ```
 
-生成：
+同时初始化 Harness Runtime、Comet 和 Agent 项目入口：
+
+```bash
+pnpm exec harness-comet setup --mode runtime
+```
+
+两者区别：
+
+| 命令 | Harness Runtime | Comet | `.agents` 和 Agent 入口 |
+|---|---|---|---|
+| `init --mode runtime` | 是 | 否 | 否 |
+| `setup --mode runtime` | 是 | 是 | 是 |
+
+生成的 Runtime 目录：
 
 ```text
 harness-comet.config.ts
