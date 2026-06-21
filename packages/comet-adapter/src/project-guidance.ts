@@ -13,10 +13,12 @@ const TARGETS = [
 ] as const;
 
 type GuidanceTarget = (typeof TARGETS)[number];
+type GuidanceLanguage = "en" | "zh";
 
 export async function initializeProjectGuidance(projectRoot: string): Promise<void> {
   const selected = await detectSupportedAgents(projectRoot);
   if (selected.length === 0) return;
+  await detectGuidanceLanguage(projectRoot, selected[0]);
 
   const agentsRoot = path.join(projectRoot, ".agents");
   await fs.mkdir(agentsRoot, { recursive: true });
@@ -41,6 +43,26 @@ async function detectSupportedAgents(projectRoot: string): Promise<GuidanceTarge
     }
   }
   return selected;
+}
+
+async function detectGuidanceLanguage(
+  projectRoot: string,
+  target: GuidanceTarget
+): Promise<GuidanceLanguage> {
+  const candidates = [
+    path.join(projectRoot, ".comet", "config.yaml"),
+    path.join(projectRoot, target.skillRoot, "comet-open", "SKILL.md")
+  ];
+  for (const candidate of candidates) {
+    try {
+      const content = await fs.readFile(candidate, "utf8");
+      if (/(language|locale)\s*:\s*("?)(zh|zh-cn|chinese)\2/i.test(content)) return "zh";
+      if (/[\u4e00-\u9fff]/.test(content)) return "zh";
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return "en";
 }
 
 async function writeIfMissing(filePath: string, content: string): Promise<void> {
