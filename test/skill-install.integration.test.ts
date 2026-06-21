@@ -14,10 +14,12 @@ describe("standalone skill installer", () => {
     expect(result.stdout).toContain("playwright-authoring-decision");
   });
 
-  it("installs one skill into detected Codex and Claude projects", async () => {
+  it("installs one skill into detected Codex, Claude, Cursor, and Copilot projects", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-skill-install-"));
     await mkdir(path.join(root, ".codex"), { recursive: true });
     await mkdir(path.join(root, ".claude"), { recursive: true });
+    await mkdir(path.join(root, ".cursor"), { recursive: true });
+    await mkdir(path.join(root, ".github"), { recursive: true });
 
     const result = await execa("pnpm", [
       ...cli,
@@ -30,6 +32,9 @@ describe("standalone skill installer", () => {
 
     expect(result.stdout).toContain("codex");
     expect(result.stdout).toContain("claude");
+    expect(result.stdout).toContain("cursor");
+    expect(result.stdout).toContain("github-copilot");
+
     const codex = await readFile(
       path.join(root, ".codex", "skills", "playwright-authoring-decision", "SKILL.md"),
       "utf8"
@@ -38,8 +43,18 @@ describe("standalone skill installer", () => {
       path.join(root, ".claude", "skills", "playwright-authoring-decision", "SKILL.md"),
       "utf8"
     );
+    const cursor = await readFile(
+      path.join(root, ".cursor", "skills", "playwright-authoring-decision", "SKILL.md"),
+      "utf8"
+    );
+    const copilot = await readFile(
+      path.join(root, ".github", "skills", "playwright-authoring-decision", "SKILL.md"),
+      "utf8"
+    );
     expect(codex).toContain("name: playwright-authoring-decision");
     expect(claude).toBe(codex);
+    expect(cursor).toBe(codex);
+    expect(copilot).toBe(codex);
   });
 
   it("rejects unsupported standalone installation platforms", async () => {
@@ -54,12 +69,12 @@ describe("standalone skill installer", () => {
         "install",
         "playwright-authoring-decision",
         "--platform",
-        "cursor"
+        "gemini"
       ],
       { reject: false }
     );
 
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("supports only codex and claude");
+    expect(result.stderr).toContain("codex, claude, cursor, and github-copilot");
   });
 });
