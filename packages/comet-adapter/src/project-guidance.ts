@@ -1,5 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { HarnessError } from "@hapergg/harness-comet-core";
+import {
+  GUIDANCE_END,
+  GUIDANCE_START,
+  renderGuidanceEntry
+} from "./project-guidance-entries.js";
 import {
   rulesTemplate,
   structureTemplate,
@@ -28,6 +34,13 @@ export async function initializeProjectGuidance(projectRoot: string): Promise<vo
   await fs.mkdir(agentsRoot, { recursive: true });
   await writeIfMissing(path.join(agentsRoot, "rules.md"), rulesTemplate(language));
   await writeIfMissing(path.join(agentsRoot, "structure.md"), structureTemplate(language));
+
+  for (const target of selected) {
+    await patchEntryFile(
+      path.join(projectRoot, target.entryPath),
+      renderGuidanceEntry(target.id, language)
+    );
+  }
 }
 
 async function detectSupportedAgents(projectRoot: string): Promise<GuidanceTarget[]> {
@@ -70,6 +83,32 @@ async function writeIfMissing(filePath: string, content: string): Promise<void> 
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     await writeAtomic(filePath, content);
   }
+}
+
+async function patchEntryFile(filePath: string, block: string): Promise<void> {
+  let current = "";
+  try {
+    current = await fs.readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+
+  const start = current.indexOf(GUIDANCE_START);
+  const end = current.indexOf(GUIDANCE_END);
+  let next: string;
+  if (start === -1 && end === -1) {
+    next = `${current.trimEnd()}${current.trim() ? "\n\n" : ""}${block}\n`;
+  } else if (start >= 0 && end > start) {
+    next = `${current.slice(0, start)}${block}${current.slice(end + GUIDANCE_END.length)}`;
+  } else {
+    throw new HarnessError({
+      code: "COMET_AGENT_GUIDANCE_CONFLICT",
+      category: "config",
+      message: `Invalid Harness-Comet managed block: ${filePath}`
+    });
+  }
+
+  if (next !== current) await writeAtomic(filePath, next);
 }
 
 async function writeAtomic(filePath: string, content: string): Promise<void> {
