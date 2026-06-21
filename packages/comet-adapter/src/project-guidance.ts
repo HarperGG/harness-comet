@@ -1,5 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  rulesTemplate,
+  structureTemplate,
+  type GuidanceLanguage
+} from "./project-guidance-templates.js";
 
 const TARGETS = [
   { id: "codex", skillRoot: ".codex/skills", entryPath: "AGENTS.md" },
@@ -13,23 +18,16 @@ const TARGETS = [
 ] as const;
 
 type GuidanceTarget = (typeof TARGETS)[number];
-type GuidanceLanguage = "en" | "zh";
 
 export async function initializeProjectGuidance(projectRoot: string): Promise<void> {
   const selected = await detectSupportedAgents(projectRoot);
   if (selected.length === 0) return;
-  await detectGuidanceLanguage(projectRoot, selected[0]);
+  const language = await detectGuidanceLanguage(projectRoot, selected[0]);
 
   const agentsRoot = path.join(projectRoot, ".agents");
   await fs.mkdir(agentsRoot, { recursive: true });
-  await writeIfMissing(
-    path.join(agentsRoot, "rules.md"),
-    "# Project Rules\n\n## Red Lines\n\nNo confirmed red lines yet.\n\n## Engineering Guidelines\n\nNo confirmed engineering guidelines yet.\n"
-  );
-  await writeIfMissing(
-    path.join(agentsRoot, "structure.md"),
-    "# Project Structure\n\n## Overview\n\nTo be refined by future archive workflows.\n\n## Important Directories and Modules\n\nTo be documented.\n"
-  );
+  await writeIfMissing(path.join(agentsRoot, "rules.md"), rulesTemplate(language));
+  await writeIfMissing(path.join(agentsRoot, "structure.md"), structureTemplate(language));
 }
 
 async function detectSupportedAgents(projectRoot: string): Promise<GuidanceTarget[]> {
