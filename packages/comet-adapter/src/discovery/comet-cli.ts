@@ -9,10 +9,29 @@ export function getCometBinary(): string {
   return process.env.HARNESS_COMET_COMET_BIN || "comet";
 }
 
-export async function detectCometCli(projectRoot: string): Promise<CometCliStatus> {
+function windowsCommandLine(command: string, args: string[]): string {
+  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  return [quote(command), ...args.map(quote)].join(" ");
+}
+
+async function execComet(
+  args: string[],
+  options: { cwd: string; maxBuffer?: number }
+): Promise<{ stdout: string; stderr: string }> {
   const binary = getCometBinary();
+  if (process.platform !== "win32") {
+    return await execFileAsync(binary, args, options);
+  }
+  return await execFileAsync(
+    process.env.ComSpec || "cmd.exe",
+    ["/d", "/s", "/c", windowsCommandLine(binary, args)],
+    options
+  );
+}
+
+export async function detectCometCli(projectRoot: string): Promise<CometCliStatus> {
   try {
-    const { stdout, stderr } = await execFileAsync(binary, ["--version"], { cwd: projectRoot });
+    const { stdout, stderr } = await execComet(["--version"], { cwd: projectRoot });
     const output = `${stdout}\n${stderr}`.trim();
     const versionMatch = output.match(/(\d+\.\d+\.\d+)/);
     if (!versionMatch) {
@@ -53,7 +72,7 @@ export async function runCometProjectInit(
     await spawnCometInteractive(args, projectRoot);
     return;
   }
-  await execFileAsync(getCometBinary(), args, {
+  await execComet(args, {
     cwd: projectRoot,
     maxBuffer: 1024 * 1024 * 10
   });
@@ -61,10 +80,15 @@ export async function runCometProjectInit(
 
 async function spawnCometInteractive(args: string[], projectRoot: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(getCometBinary(), args, {
-      cwd: projectRoot,
-      stdio: "inherit"
-    });
+    const binary = getCometBinary();
+    const child =
+      process.platform === "win32"
+        ? spawn(
+            process.env.ComSpec || "cmd.exe",
+            ["/d", "/s", "/c", windowsCommandLine(binary, args)],
+            { cwd: projectRoot, stdio: "inherit" }
+          )
+        : spawn(binary, args, { cwd: projectRoot, stdio: "inherit" });
 
     child.on("error", reject);
     child.on("close", (code, signal) => {
