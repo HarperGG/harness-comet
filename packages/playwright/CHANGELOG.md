@@ -1,5 +1,13 @@
 # @hapergg/harness-comet-playwright
 
+## 0.2.8
+
+### Patch Changes
+
+- upfsyr
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.8
+
 ## 0.2.7
 
 ### Patch Changes

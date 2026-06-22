@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-core
 
+## 0.2.8
+
+### Patch Changes
+
+- upfsyr
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.8
+  - @hapergg/harness-comet-sdk@0.2.8
+
 ## 0.2.7
 
 ### Patch Changes

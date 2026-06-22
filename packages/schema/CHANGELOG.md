@@ -1,5 +1,11 @@
 # @hapergg/harness-comet-schema
 
+## 0.2.8
+
+### Patch Changes
+
+- upfsyr
+
 ## 0.2.7
 
 ### Patch Changes
