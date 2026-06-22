@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import {
+  commandNeedsShell,
   confirmInstall,
   installCometGlobally,
   npmExecutable,
@@ -8,9 +9,11 @@ import {
 } from "../bin/comet-bootstrap.js";
 
 describe("comet bootstrap", () => {
-  it("uses npm.cmd on Windows", () => {
+  it("uses npm.cmd and a shell on Windows", () => {
     expect(npmExecutable("win32")).toBe("npm.cmd");
+    expect(commandNeedsShell("win32")).toBe(true);
     expect(npmExecutable("linux")).toBe("npm");
+    expect(commandNeedsShell("linux")).toBe(false);
   });
 
   it("bootstraps setup and comet install commands", () => {
@@ -20,7 +23,7 @@ describe("comet bootstrap", () => {
     expect(shouldBootstrapComet(["node", "cli", "doctor"])).toBe(false);
   });
 
-  it("spawns the cross-platform npm executable", async () => {
+  it("spawns npm through the Windows command shell", async () => {
     const child = new EventEmitter();
     const spawnImpl = vi.fn(() => child);
     const pending = installCometGlobally({ cwd: "C:/repo", platform: "win32", spawnImpl });
@@ -30,7 +33,7 @@ describe("comet bootstrap", () => {
     expect(spawnImpl).toHaveBeenCalledWith(
       "npm.cmd",
       ["install", "-g", "@rpamis/comet"],
-      expect.objectContaining({ cwd: "C:/repo", stdio: "inherit", shell: false })
+      expect.objectContaining({ cwd: "C:/repo", stdio: "inherit", shell: true })
     );
   });
 

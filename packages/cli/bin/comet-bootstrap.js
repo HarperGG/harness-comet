@@ -11,6 +11,10 @@ export function cometExecutable(platform = process.platform) {
   return platform === "win32" ? "comet.cmd" : "comet";
 }
 
+export function commandNeedsShell(platform = process.platform) {
+  return platform === "win32";
+}
+
 export function shouldBootstrapComet(argv) {
   const args = argv.slice(2);
   if (args.includes("--dry-run") || args.includes("--json")) return false;
@@ -21,7 +25,7 @@ export function shouldBootstrapComet(argv) {
 export function isCometAvailable(platform = process.platform) {
   const result = spawnSync(cometExecutable(platform), ["--version"], {
     stdio: "ignore",
-    shell: false
+    shell: commandNeedsShell(platform)
   });
   return result.status === 0;
 }
@@ -35,7 +39,7 @@ export async function installCometGlobally({
     const child = spawnImpl(npmExecutable(platform), ["install", "-g", COMET_PACKAGE], {
       cwd,
       stdio: "inherit",
-      shell: false
+      shell: commandNeedsShell(platform)
     });
 
     child.once("error", reject);
@@ -44,7 +48,13 @@ export async function installCometGlobally({
         resolve();
         return;
       }
-      reject(new Error(signal ? `npm install terminated by ${signal}` : `npm install exited with code ${code ?? "unknown"}`));
+      reject(
+        new Error(
+          signal
+            ? `npm install terminated by ${signal}`
+            : `npm install exited with code ${code ?? "unknown"}`
+        )
+      );
     });
   });
 }
