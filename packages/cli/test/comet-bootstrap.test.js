@@ -5,7 +5,7 @@ import {
   installCometGlobally,
   npmExecutable,
   shouldBootstrapComet
-} from "./comet-bootstrap.js";
+} from "../bin/comet-bootstrap.js";
 
 describe("comet bootstrap", () => {
   it("uses npm.cmd on Windows", () => {
