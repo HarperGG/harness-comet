@@ -1,5 +1,11 @@
 # @hapergg/harness-comet-schema
 
+## 0.2.5
+
+### Patch Changes
+
+- add pnpm install cli
+
 ## 0.2.4
 
 ### Patch Changes

@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-core
 
+## 0.2.5
+
+### Patch Changes
+
+- add pnpm install cli
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.5
+  - @hapergg/harness-comet-sdk@0.2.5
+
 ## 0.2.4
 
 ### Patch Changes
