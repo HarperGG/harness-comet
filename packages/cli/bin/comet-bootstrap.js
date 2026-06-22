@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 const COMET_PACKAGE = "@rpamis/comet";
 const COMET_INSTALL_COMMAND = `npm install -g ${COMET_PACKAGE}`;
 
-export function cometExecutable(platform = process.platform) {
+export function cometExecutable(platform = process.platform, env = process.env) {
+  if (env.HARNESS_COMET_COMET_BIN) return env.HARNESS_COMET_COMET_BIN;
   return platform === "win32" ? "comet.cmd" : "comet";
 }
 
@@ -14,21 +15,27 @@ export function shouldCheckComet(argv) {
   return args[0] === "comet" && args[1] === "install";
 }
 
-function commandSpec(command, args, platform = process.platform) {
+function windowsCommandLine(command, args) {
+  const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
+  return [quote(command), ...args.map(quote)].join(" ");
+}
+
+function commandSpec(command, args, platform = process.platform, env = process.env) {
   if (platform !== "win32") return { command, args };
   return {
-    command: process.env.ComSpec || "cmd.exe",
-    args: ["/d", "/s", "/c", [command, ...args].join(" ")]
+    command: env.ComSpec || "cmd.exe",
+    args: ["/d", "/s", "/c", windowsCommandLine(command, args)]
   };
 }
 
-export function isCometAvailable(platform = process.platform) {
-  const spec = commandSpec(cometExecutable(platform), ["--version"], platform);
+export function isCometAvailable(platform = process.platform, env = process.env) {
+  const command = cometExecutable(platform, env);
+  const spec = commandSpec(command, ["--version"], platform, env);
   const result = spawnSync(spec.command, spec.args, {
     stdio: "ignore",
     shell: false
   });
-  return result.status === 0;
+  return !result.error && result.status === 0;
 }
 
 export function formatMissingCometMessage() {
@@ -45,7 +52,18 @@ export function formatMissingCometMessage() {
 }
 
 export async function bootstrapComet(argv, options = {}) {
-  if (!shouldCheckComet(argv) || isCometAvailable(options.platform)) return argv;
+  if (!shouldCheckComet(argv)) return argv;
+
+  const platform = options.platform ?? process.platform;
+  const env = options.env ?? process.env;
+  if (isCometAvailable(platform, env)) {
+    // Keep the adapter and bootstrap checks on the exact same executable,
+    // especially on Windows where npm exposes command shims as *.cmd files.
+    if (!env.HARNESS_COMET_COMET_BIN) {
+      env.HARNESS_COMET_COMET_BIN = cometExecutable(platform, env);
+    }
+    return argv;
+  }
 
   const output = options.output ?? process.stderr;
   output.write(formatMissingCometMessage());
