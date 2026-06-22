@@ -1,5 +1,13 @@
 # @hapergg/harness-comet-sdk
 
+## 0.2.11
+
+### Patch Changes
+
+- update
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.11
+
 ## 0.2.10
 
 ### Patch Changes
