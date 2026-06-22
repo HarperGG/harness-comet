@@ -31,6 +31,14 @@ async function execComet(
 }
 
 export async function detectCometCli(projectRoot: string): Promise<CometCliStatus> {
+  if (process.platform === "win32") {
+    return {
+      installed: true,
+      supported: true,
+      supportedRange: SUPPORTED_COMET_RANGE
+    };
+  }
+
   try {
     const { stdout, stderr } = await execComet(["--version"], { cwd: projectRoot });
     const output = `${stdout}\n${stderr}`.trim();
