@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
+import path from "node:path";
 import readline from "node:readline";
 
 const COMET_PACKAGE = "@rpamis/comet";
@@ -11,10 +12,6 @@ export function cometExecutable(platform = process.platform) {
   return platform === "win32" ? "comet.cmd" : "comet";
 }
 
-export function commandNeedsShell(platform = process.platform) {
-  return platform === "win32";
-}
-
 export function shouldBootstrapComet(argv) {
   const args = argv.slice(2);
   if (args.includes("--dry-run") || args.includes("--json")) return false;
@@ -22,12 +19,30 @@ export function shouldBootstrapComet(argv) {
   return args[0] === "comet" && args[1] === "install";
 }
 
+function commandSpec(command, args, platform = process.platform) {
+  if (platform !== "win32") return { command, args };
+  const comspec = process.env.ComSpec || "cmd.exe";
+  return { command: comspec, args: ["/d", "/s", "/c", [command, ...args].join(" ")] };
+}
+
 export function isCometAvailable(platform = process.platform) {
-  const result = spawnSync(cometExecutable(platform), ["--version"], {
-    stdio: "ignore",
-    shell: commandNeedsShell(platform)
-  });
+  const spec = commandSpec(cometExecutable(platform), ["--version"], platform);
+  const result = spawnSync(spec.command, spec.args, { stdio: "ignore", shell: false });
   return result.status === 0;
+}
+
+export function resolveGlobalCometBinary(platform = process.platform) {
+  const spec = commandSpec(npmExecutable(platform), ["prefix", "-g"], platform);
+  const result = spawnSync(spec.command, spec.args, {
+    encoding: "utf8",
+    shell: false
+  });
+  if (result.status !== 0) return undefined;
+  const prefix = result.stdout.trim();
+  if (!prefix) return undefined;
+  return platform === "win32"
+    ? path.join(prefix, "comet.cmd")
+    : path.join(prefix, "bin", "comet");
 }
 
 export async function installCometGlobally({
@@ -36,10 +51,11 @@ export async function installCometGlobally({
   spawnImpl = spawn
 } = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawnImpl(npmExecutable(platform), ["install", "-g", COMET_PACKAGE], {
+    const spec = commandSpec(npmExecutable(platform), ["install", "-g", COMET_PACKAGE], platform);
+    const child = spawnImpl(spec.command, spec.args, {
       cwd,
       stdio: "inherit",
-      shell: commandNeedsShell(platform)
+      shell: false
     });
 
     child.once("error", reject);
@@ -48,21 +64,12 @@ export async function installCometGlobally({
         resolve();
         return;
       }
-      reject(
-        new Error(
-          signal
-            ? `npm install terminated by ${signal}`
-            : `npm install exited with code ${code ?? "unknown"}`
-        )
-      );
+      reject(new Error(signal ? `npm install terminated by ${signal}` : `npm install exited with code ${code ?? "unknown"}`));
     });
   });
 }
 
-export async function confirmInstall({
-  input = process.stdin,
-  output = process.stdout
-} = {}) {
+export async function confirmInstall({ input = process.stdin, output = process.stdout } = {}) {
   if (!input.isTTY || !output.isTTY || typeof input.setRawMode !== "function") {
     return await confirmInstallLine(input, output);
   }
@@ -94,12 +101,10 @@ export async function confirmInstall({
       input.pause();
       output.write("\x1b[1B\r\x1b[2K\n");
     };
-
     const finish = (value) => {
       cleanup();
       resolve(value);
     };
-
     const onKeypress = (str, key = {}) => {
       if (key.ctrl && key.name === "c") {
         cleanup();
@@ -118,7 +123,6 @@ export async function confirmInstall({
       if (str?.toLowerCase() === "y") finish(true);
       if (str?.toLowerCase() === "n") finish(false);
     };
-
     input.on("keypress", onKeypress);
   });
 }
@@ -148,5 +152,7 @@ export async function bootstrapComet(argv, options = {}) {
   }
 
   await installCometGlobally(options);
+  const binary = resolveGlobalCometBinary(options.platform);
+  if (binary) process.env.HARNESS_COMET_COMET_BIN = binary;
   return assumeYes ? argv : [...argv, "--yes"];
 }
