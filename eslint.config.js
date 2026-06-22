@@ -25,6 +25,9 @@ export default tseslint.config(
     files: ["**/*.{js,mjs,cjs}"],
     languageOptions: {
       globals: nodeGlobals
+    },
+    rules:{
+      "no-useless-escape": "off"
     }
   },
   {
