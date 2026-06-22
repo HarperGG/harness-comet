@@ -9,10 +9,8 @@ export function getCometBinary(): string {
   return process.env.HARNESS_COMET_COMET_BIN || "comet";
 }
 
-function windowsCommandLine(command: string, args: string[]): string {
-  const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
-  const inner = [quote(command), ...args.map(quote)].join(" ");
-  return `"${inner}"`;
+function windowsCometArgs(command: string, args: string[]): string[] {
+  return ["/d", "/c", command, ...args];
 }
 
 async function execComet(
@@ -25,7 +23,7 @@ async function execComet(
   }
   return await execFileAsync(
     process.env.ComSpec || "cmd.exe",
-    ["/d", "/s", "/c", windowsCommandLine(binary, args)],
+    windowsCometArgs(binary, args),
     options
   );
 }
@@ -94,10 +92,16 @@ async function spawnCometInteractive(args: string[], projectRoot: string): Promi
       process.platform === "win32"
         ? spawn(
             process.env.ComSpec || "cmd.exe",
-            ["/d", "/s", "/c", windowsCommandLine(binary, args)],
-            { cwd: projectRoot, stdio: "inherit" }
+            windowsCometArgs(binary, args),
+            {
+              cwd: projectRoot,
+              stdio: "inherit"
+            }
           )
-        : spawn(binary, args, { cwd: projectRoot, stdio: "inherit" });
+        : spawn(binary, args, {
+            cwd: projectRoot,
+            stdio: "inherit"
+          });
 
     child.on("error", reject);
     child.on("close", (code, signal) => {
