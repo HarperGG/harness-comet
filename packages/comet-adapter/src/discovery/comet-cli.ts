@@ -11,7 +11,8 @@ export function getCometBinary(): string {
 
 function windowsCommandLine(command: string, args: string[]): string {
   const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
-  return [quote(command), ...args.map(quote)].join(" ");
+  const inner = [quote(command), ...args.map(quote)].join(" ");
+  return `"${inner}"`;
 }
 
 async function execComet(

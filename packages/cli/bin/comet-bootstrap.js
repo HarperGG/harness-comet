@@ -15,9 +15,13 @@ export function shouldCheckComet(argv) {
   return args[0] === "comet" && args[1] === "install";
 }
 
-function windowsCommandLine(command, args) {
+export function windowsCommandLine(command, args) {
   const quote = (value) => `"${String(value).replaceAll('"', '""')}"`;
-  return [quote(command), ...args.map(quote)].join(" ");
+  const inner = [quote(command), ...args.map(quote)].join(" ");
+  // cmd.exe /s /c requires an extra pair of outer quotes when the command
+  // itself is quoted. Without them, cmd can strip the executable quotes and
+  // fail to resolve npm-generated *.cmd shims such as comet.cmd.
+  return `"${inner}"`;
 }
 
 function commandSpec(command, args, platform = process.platform, env = process.env) {
