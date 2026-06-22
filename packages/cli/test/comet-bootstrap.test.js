@@ -1,7 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import {
-  commandNeedsShell,
   confirmInstall,
   installCometGlobally,
   npmExecutable,
@@ -9,11 +8,9 @@ import {
 } from "../bin/comet-bootstrap.js";
 
 describe("comet bootstrap", () => {
-  it("uses npm.cmd and a shell on Windows", () => {
+  it("uses npm.cmd on Windows", () => {
     expect(npmExecutable("win32")).toBe("npm.cmd");
-    expect(commandNeedsShell("win32")).toBe(true);
     expect(npmExecutable("linux")).toBe("npm");
-    expect(commandNeedsShell("linux")).toBe(false);
   });
 
   it("bootstraps setup and comet install commands", () => {
@@ -23,18 +20,17 @@ describe("comet bootstrap", () => {
     expect(shouldBootstrapComet(["node", "cli", "doctor"])).toBe(false);
   });
 
-  it("spawns npm through the Windows command shell", async () => {
+  it("runs npm.cmd through cmd.exe without shell true", async () => {
     const child = new EventEmitter();
     const spawnImpl = vi.fn(() => child);
     const pending = installCometGlobally({ cwd: "C:/repo", platform: "win32", spawnImpl });
     child.emit("close", 0, null);
     await pending;
 
-    expect(spawnImpl).toHaveBeenCalledWith(
-      "npm.cmd",
-      ["install", "-g", "@rpamis/comet"],
-      expect.objectContaining({ cwd: "C:/repo", stdio: "inherit", shell: true })
-    );
+    const [command, args, options] = spawnImpl.mock.calls[0];
+    expect(command.toLowerCase()).toContain("cmd.exe");
+    expect(args).toEqual(["/d", "/s", "/c", "npm.cmd install -g @rpamis/comet"]);
+    expect(options).toEqual(expect.objectContaining({ cwd: "C:/repo", stdio: "inherit", shell: false }));
   });
 
   it("supports arrow-key selection and Enter", async () => {
