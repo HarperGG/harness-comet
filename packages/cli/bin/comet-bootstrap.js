@@ -142,17 +142,12 @@ async function confirmInstallLine(input, output) {
 export async function bootstrapComet(argv, options = {}) {
   if (!shouldBootstrapComet(argv) || isCometAvailable(options.platform)) return argv;
 
-  const args = argv.slice(2);
-  const assumeYes = args.includes("--yes");
-  const shouldInstall = assumeYes || (await confirmInstall(options));
-  if (!shouldInstall) {
-    const output = options.output ?? process.stdout;
-    output.write("\nInstall Comet CLI with:\n\n  npm install -g @rpamis/comet\n\n");
-    return null;
-  }
-
+  const output = options.output ?? process.stdout;
+  output.write("Comet CLI was not found. Installing @rpamis/comet globally...\n");
   await installCometGlobally(options);
+
   const binary = resolveGlobalCometBinary(options.platform);
   if (binary) process.env.HARNESS_COMET_COMET_BIN = binary;
-  return assumeYes ? argv : [...argv, "--yes"];
+
+  return argv;
 }
