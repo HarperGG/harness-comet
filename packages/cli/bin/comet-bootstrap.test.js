@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import {
-  bootstrapComet,
+  confirmInstall,
   installCometGlobally,
   npmExecutable,
   shouldBootstrapComet
@@ -34,32 +34,21 @@ describe("comet bootstrap", () => {
     );
   });
 
-  it("adds --yes after interactive installation to avoid a second prompt", async () => {
-    const child = new EventEmitter();
-    const spawnImpl = vi.fn(() => child);
-    const input = {
-      isTTY: false
-    };
-    const output = {
-      isTTY: false,
-      write: vi.fn()
-    };
-    const argv = ["node", "cli", "setup", "--mode", "playwright"];
-
-    const resultPromise = bootstrapComet(argv, {
-      platform: "linux",
-      input,
-      output,
-      spawnImpl
+  it("supports arrow-key selection and Enter", async () => {
+    const input = Object.assign(new EventEmitter(), {
+      isTTY: true,
+      setRawMode: vi.fn(),
+      resume: vi.fn(),
+      pause: vi.fn()
     });
+    const output = { isTTY: true, write: vi.fn() };
 
-    // Non-TTY line prompts are covered by the CLI integration path; emulate --yes here
-    // so this unit test focuses on the post-install argv contract.
-    const yesArgv = [...argv, "--yes"];
-    child.emit("close", 0, null);
-    await expect(Promise.resolve(yesArgv)).resolves.toContain("--yes");
+    const confirmation = confirmInstall({ input, output });
+    input.emit("keypress", "", { name: "down" });
+    input.emit("keypress", "", { name: "return" });
 
-    // Avoid leaving an unresolved promise if the injected non-TTY input cannot answer.
-    void resultPromise.catch(() => undefined);
+    await expect(confirmation).resolves.toBe(false);
+    expect(input.setRawMode).toHaveBeenNthCalledWith(1, true);
+    expect(input.setRawMode).toHaveBeenLastCalledWith(false);
   });
 });
