@@ -1,53 +1,28 @@
-import { EventEmitter } from "node:events";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  confirmInstall,
-  installCometGlobally,
-  npmExecutable,
-  shouldBootstrapComet
+  cometExecutable,
+  formatMissingCometMessage,
+  shouldCheckComet
 } from "../bin/comet-bootstrap.js";
 
-describe("comet bootstrap", () => {
-  it("uses npm.cmd on Windows", () => {
-    expect(npmExecutable("win32")).toBe("npm.cmd");
-    expect(npmExecutable("linux")).toBe("npm");
+describe("Comet prerequisite", () => {
+  it("uses the Windows command shim when needed", () => {
+    expect(cometExecutable("win32")).toBe("comet.cmd");
+    expect(cometExecutable("linux")).toBe("comet");
   });
 
-  it("bootstraps setup and comet install commands", () => {
-    expect(shouldBootstrapComet(["node", "cli", "setup", "--mode", "playwright"])).toBe(true);
-    expect(shouldBootstrapComet(["node", "cli", "comet", "install"])).toBe(true);
-    expect(shouldBootstrapComet(["node", "cli", "setup", "--dry-run"])).toBe(false);
-    expect(shouldBootstrapComet(["node", "cli", "doctor"])).toBe(false);
+  it("checks commands that require Comet", () => {
+    expect(shouldCheckComet(["node", "cli", "setup", "--mode", "playwright"])).toBe(true);
+    expect(shouldCheckComet(["node", "cli", "comet", "install"])).toBe(true);
+    expect(shouldCheckComet(["node", "cli", "setup", "--dry-run"])).toBe(false);
+    expect(shouldCheckComet(["node", "cli", "doctor"])).toBe(false);
   });
 
-  it("runs npm.cmd through cmd.exe without shell true", async () => {
-    const child = new EventEmitter();
-    const spawnImpl = vi.fn(() => child);
-    const pending = installCometGlobally({ cwd: "C:/repo", platform: "win32", spawnImpl });
-    child.emit("close", 0, null);
-    await pending;
-
-    const [command, args, options] = spawnImpl.mock.calls[0];
-    expect(command.toLowerCase()).toContain("cmd.exe");
-    expect(args).toEqual(["/d", "/s", "/c", "npm.cmd install -g @rpamis/comet"]);
-    expect(options).toEqual(expect.objectContaining({ cwd: "C:/repo", stdio: "inherit", shell: false }));
-  });
-
-  it("supports arrow-key selection and Enter", async () => {
-    const input = Object.assign(new EventEmitter(), {
-      isTTY: true,
-      setRawMode: vi.fn(),
-      resume: vi.fn(),
-      pause: vi.fn()
-    });
-    const output = { isTTY: true, write: vi.fn() };
-
-    const confirmation = confirmInstall({ input, output });
-    input.emit("keypress", "", { name: "down" });
-    input.emit("keypress", "", { name: "return" });
-
-    await expect(confirmation).resolves.toBe(false);
-    expect(input.setRawMode).toHaveBeenNthCalledWith(1, true);
-    expect(input.setRawMode).toHaveBeenLastCalledWith(false);
+  it("prints explicit global installation instructions", () => {
+    const message = formatMissingCometMessage();
+    expect(message).toContain("Comet CLI is required but was not found.");
+    expect(message).toContain("Install Comet globally");
+    expect(message).toContain("npm install -g @rpamis/comet");
+    expect(message).not.toContain("Install it globally now?");
   });
 });
