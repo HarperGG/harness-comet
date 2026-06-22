@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-comet-adapter",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Comet lifecycle integration and verification adapter for Harness Comet.",
   "license": "MIT",
   "type": "module",

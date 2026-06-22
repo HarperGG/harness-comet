@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-adapter-memory",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "In-memory Harness Comet adapter for lightweight runtime scenarios.",
   "license": "MIT",
   "type": "module",

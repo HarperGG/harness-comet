@@ -1,5 +1,14 @@
 # @hapergg/harness-comet-adapter-memory
 
+## 0.2.6
+
+### Patch Changes
+
+- update
+- Updated dependencies
+  - @hapergg/harness-comet-schema@0.2.6
+  - @hapergg/harness-comet-sdk@0.2.6
+
 ## 0.2.5
 
 ### Patch Changes
