@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-core",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Core discovery, validation, package-manager, and runtime utilities for Harness Comet.",
   "license": "MIT",
   "type": "module",
