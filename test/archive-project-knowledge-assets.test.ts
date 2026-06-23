@@ -35,4 +35,15 @@ describe("archive project knowledge assets", () => {
     expect(chinese).toContain("拟议 diff");
     expect(chinese).toContain("跳过知识更新");
   });
+
+  it("requires enumerated structure consistency and an impact judgment", async () => {
+    const chinese = await readFile(path.join(root, "zh", "comet-archive", "SKILL.md"), "utf8");
+
+    expect(chinese).toContain("同一层级新增、删除、重命名或迁移长期子项");
+    expect(chinese).toContain("结构变化触发器");
+    expect(chinese).toContain("Capability 与结构文档交叉检查");
+    expect(chinese).toContain("项目结构影响");
+    expect(chinese).toContain("缺少判断块时，不得进入 Harness/Playwright archive-check");
+    expect(chinese).toContain("明确跳过并记录原因");
+  });
 });
