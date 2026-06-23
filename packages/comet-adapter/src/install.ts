@@ -36,6 +36,7 @@ interface PlannedManagedFile extends CometInstallFilePlan {
   backupSource?: string;
   backupPath?: string;
   strategy: ManagedFileStrategy;
+  managed: boolean;
 }
 
 interface InstallTargetPlan {
@@ -251,16 +252,18 @@ async function buildInstallPlan(
         previous
       });
       filePlans.push(plan);
-      managedFiles.push(
-        buildManagedFileRecord(
-          relativePath,
-          absolutePath,
-          content,
-          false,
-          plan.strategy,
-          plan.backupPath
-        )
-      );
+      if (plan.managed) {
+        managedFiles.push(
+          buildManagedFileRecord(
+            relativePath,
+            absolutePath,
+            content,
+            false,
+            plan.strategy,
+            plan.backupPath
+          )
+        );
+      }
     }
   } else {
     for (const relativePath of PATCHED_SKILL_FILES) {
@@ -285,7 +288,15 @@ async function buildInstallPlan(
       platformId,
       skillRoot,
       writes: filePlans.map(
-        ({ content: _content, mode: _mode, backupSource: _backup, backupPath: _path, strategy: _strategy, ...plan }) => plan
+        ({
+          content: _content,
+          mode: _mode,
+          backupSource: _backup,
+          backupPath: _path,
+          strategy: _strategy,
+          managed: _managed,
+          ...plan
+        }) => plan
       )
     },
     manifest: {
@@ -413,12 +424,16 @@ async function planReplacementFile(options: {
       throw managedConflict(options.absolutePath);
     }
     if (!options.previous && !options.requiredExisting && !options.force) {
-      throw new HarnessError({
-        code: "COMET_SHARED_SKILL_CONFLICT",
-        category: "config",
-        message: `Refusing to overwrite an existing non-managed skill: ${options.absolutePath}`,
-        hint: "Use --force to back up and replace the existing skill."
-      });
+      console.warn(`SKIP existing non-managed skill preserved: ${options.absolutePath}`);
+      return noopPlan(
+        options.relativePath,
+        options.absolutePath,
+        current,
+        options.mode,
+        strategy,
+        undefined,
+        false
+      );
     }
 
     const effectiveStrategy: ManagedFileStrategy = options.requiredExisting || !options.previous
@@ -446,7 +461,8 @@ function noopPlan(
   content: string,
   mode: number,
   strategy: ManagedFileStrategy,
-  backupPath?: string
+  backupPath?: string,
+  managed = true
 ): PlannedManagedFile {
   return {
     relativePath,
@@ -456,7 +472,8 @@ function noopPlan(
     content,
     mode,
     strategy,
-    backupPath
+    backupPath,
+    managed
   };
 }
 
@@ -474,7 +491,8 @@ function createPlan(
     executable: mode === 0o755,
     content,
     mode,
-    strategy
+    strategy,
+    managed: true
   };
 }
 
@@ -496,7 +514,8 @@ function updatePlan(
     mode,
     strategy,
     backupPath,
-    backupSource
+    backupSource,
+    managed: true
   };
 }
 
