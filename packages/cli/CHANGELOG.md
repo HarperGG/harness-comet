@@ -1,5 +1,17 @@
 # @hapergg/harness-comet-cli
 
+## 0.2.15
+
+### Patch Changes
+
+- export HTTPS_PROXY=http://127.0.0.1:7892
+- Updated dependencies
+  - @hapergg/harness-comet-adapter-memory@0.2.15
+  - @hapergg/harness-comet-adapter-playwright@0.2.15
+  - @hapergg/harness-comet-comet-adapter@0.2.15
+  - @hapergg/harness-comet-core@0.2.15
+  - @hapergg/harness-comet-schema@0.2.15
+
 ## 0.2.14
 
 ### Patch Changes

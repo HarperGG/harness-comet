@@ -1,5 +1,11 @@
 # @hapergg/harness-comet-schema
 
+## 0.2.15
+
+### Patch Changes
+
+- export HTTPS_PROXY=http://127.0.0.1:7892
+
 ## 0.2.14
 
 ### Patch Changes
