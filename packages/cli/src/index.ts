@@ -119,6 +119,14 @@ export function buildProgram(options: { playwrightPassthroughArgs?: string[] } =
     .argument("<id>")
     .action(withErrors(program, async (id) => scenarioExplainCommand(rootOptions(program), id)));
 
+  const projectGuidance = program
+    .command("project-guidance")
+    .description("Project knowledge files and Agent entry wiring");
+  projectGuidance
+    .command("init")
+    .description("Initialize .agents rules/structure files and wire supported Agent entries")
+    .action(withErrors(program, async () => projectGuidanceInitCommand(rootOptions(program))));
+
   program
     .command("run")
     .option("--scenario <id>", "scenario id", collect, [] as string[])
@@ -366,6 +374,31 @@ async function scenarioExplainCommand(global: GlobalOptions, id: string): Promis
     });
   }
   output(global, { ok: true, scenario }, `Scenario ${id}`);
+}
+
+async function projectGuidanceInitCommand(global: GlobalOptions): Promise<void> {
+  const root = path.resolve(global.root ?? process.cwd());
+  const adapter = await loadCometAdapterForProjectGuidance();
+  await adapter.initializeProjectGuidance(root);
+  output(global, { ok: true }, "Initialized project guidance");
+}
+
+async function loadCometAdapterForProjectGuidance(): Promise<
+  Pick<typeof import("@hapergg/harness-comet-comet-adapter"), "initializeProjectGuidance">
+> {
+  const sourceModuleUrl = new URL("../../comet-adapter/src/index.ts", import.meta.url);
+  if (import.meta.url.includes("/packages/cli/src/")) {
+    return await import(sourceModuleUrl.href);
+  }
+
+  try {
+    const adapter = await import("@hapergg/harness-comet-comet-adapter");
+    if ("initializeProjectGuidance" in adapter) return adapter;
+  } catch {
+    // Fall back to the local source module in dev/test flows where the workspace package
+    // export may still point at stale build artifacts.
+  }
+  return await import(sourceModuleUrl.href);
 }
 
 function output(global: GlobalOptions, value: unknown, message: string): void {
