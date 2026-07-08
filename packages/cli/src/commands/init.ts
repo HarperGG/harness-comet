@@ -29,6 +29,7 @@ export interface InitHarnessOptions {
   install?: boolean;
   installBrowsers?: boolean;
   overwriteConfig?: boolean;
+  includeHarnessComet?: boolean;
 }
 
 export interface InitHarnessResult {
@@ -89,6 +90,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   const created: string[] = [];
   const skipped: string[] = [];
   const testDir = options.testDir ?? "tests";
+  const includeHarnessComet = options.includeHarnessComet ?? false;
 
   await fs.mkdir(path.join(root, testDir, "journeys"), { recursive: true });
   await fs.mkdir(path.join(root, testDir, "incidents"), { recursive: true });
@@ -103,17 +105,19 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
     skipped
   );
 
-  await writeFileSafe(
-    path.join(root, "harness-comet.config.ts"),
-    playwrightHarnessCometConfigTemplate(testDir),
-    Boolean(options.overwriteConfig),
-    "harness-comet.config.ts",
-    created,
-    skipped
-  );
+  if (includeHarnessComet) {
+    await writeFileSafe(
+      path.join(root, "harness-comet.config.ts"),
+      playwrightHarnessCometConfigTemplate(testDir),
+      Boolean(options.overwriteConfig),
+      "harness-comet.config.ts",
+      created,
+      skipped
+    );
+  }
   await writeFileSafe(
     path.join(root, "playwright.config.ts"),
-    playwrightConfigTemplate(testDir),
+    playwrightConfigTemplate(testDir, { includeHarnessReporter: includeHarnessComet }),
     false,
     "playwright.config.ts",
     created,
@@ -121,7 +125,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, testDir, "journeys", "example-save-flow.spec.ts"),
-    playwrightExampleSpecTemplate(),
+    playwrightExampleSpecTemplate({ includeHarnessTag: includeHarnessComet }),
     false,
     `${normalizePath(testDir)}/journeys/example-save-flow.spec.ts`,
     created,
@@ -137,7 +141,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, testDir, "data", "example-input.json"),
-    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by harness" }, null, 2)}\n`,
+    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by playwright" }, null, 2)}\n`,
     false,
     `${normalizePath(testDir)}/data/example-input.json`,
     created,
@@ -145,7 +149,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, testDir, "data", "example-expected-payload.json"),
-    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by harness" }, null, 2)}\n`,
+    `${JSON.stringify({ id: "annotation-1", label: "Lot A", comment: "Saved by playwright" }, null, 2)}\n`,
     false,
     `${normalizePath(testDir)}/data/example-expected-payload.json`,
     created,
@@ -177,7 +181,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, "docs", "testing", "README.md"),
-    testingReadmeTemplate(),
+    testingReadmeTemplate({ includeHarnessComet }),
     false,
     "docs/testing/README.md",
     created,
@@ -193,7 +197,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, "docs", "testing", "incident-guide.md"),
-    playwrightIncidentGuideTemplate(),
+    playwrightIncidentGuideTemplate({ includeHarnessComet }),
     false,
     "docs/testing/incident-guide.md",
     created,
@@ -201,14 +205,14 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   );
   await writeFileSafe(
     path.join(root, "docs", "testing", "acceptance-criteria.md"),
-    playwrightAcceptanceCriteriaTemplate(),
+    playwrightAcceptanceCriteriaTemplate({ includeHarnessComet }),
     false,
     "docs/testing/acceptance-criteria.md",
     created,
     skipped
   );
 
-  await ensurePlaywrightPackageJson(root);
+  await ensurePlaywrightPackageJson(root, includeHarnessComet);
 
   const install = options.install ?? true;
   const installBrowsers = options.installBrowsers ?? true;
@@ -303,7 +307,7 @@ assertions:
 `;
 }
 
-async function ensurePlaywrightPackageJson(root: string): Promise<void> {
+async function ensurePlaywrightPackageJson(root: string, includeHarnessComet: boolean): Promise<void> {
   const packagePath = path.join(root, "package.json");
   let pkg: Record<string, unknown>;
   try {
@@ -316,7 +320,7 @@ async function ensurePlaywrightPackageJson(root: string): Promise<void> {
   if (!devDependencies["@playwright/test"]) {
     devDependencies["@playwright/test"] = "^1.60.0";
   }
-  if (!devDependencies[HARNESS_COMET_PLAYWRIGHT_PACKAGE]) {
+  if (includeHarnessComet && !devDependencies[HARNESS_COMET_PLAYWRIGHT_PACKAGE]) {
     devDependencies[HARNESS_COMET_PLAYWRIGHT_PACKAGE] = HARNESS_COMET_PLAYWRIGHT_DEPENDENCY;
   }
 
@@ -338,7 +342,7 @@ async function installProjectDependencies(root: string): Promise<boolean> {
     throw new HarnessError({
       code: "PLAYWRIGHT_DEPENDENCY_INSTALL_FAILED",
       category: "environment",
-      message: "Initialized harness assets, but dependency installation failed",
+      message: "Initialized Playwright assets, but dependency installation failed",
       hint: `Run: ${formatCommand(command, args)}`,
       context: {
         root,
@@ -364,7 +368,7 @@ async function installPlaywrightBrowsers(root: string): Promise<boolean> {
     throw new HarnessError({
       code: "PLAYWRIGHT_BROWSER_INSTALL_FAILED",
       category: "environment",
-      message: "Initialized harness assets and dependencies, but Chromium installation failed",
+      message: "Initialized Playwright assets and dependencies, but Chromium installation failed",
       hint: "Run: pnpm exec playwright install chromium",
       context: {
         root,
