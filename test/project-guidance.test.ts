@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -28,6 +28,26 @@ describe("project guidance initialization", () => {
     expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(
       "# Existing instructions"
     );
+  });
+
+  it("can initialize only selected agent entries", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "project-guidance-selected-"));
+
+    await initializeProjectGuidance(root, { agents: ["codex", "claude"] });
+
+    expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("# Project Rules");
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(".agents/rules.md");
+    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain(".agents/rules.md");
+    await expect(stat(path.join(root, ".cursor", "rules", "harness-comet.mdc"))).rejects.toBeTruthy();
+    await expect(stat(path.join(root, ".github", "copilot-instructions.md"))).rejects.toBeTruthy();
+  });
+
+  it("rejects unknown selected agents", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "project-guidance-invalid-"));
+
+    await expect(
+      initializeProjectGuidance(root, { agents: ["windsurf" as never] })
+    ).rejects.toThrow("Unknown project guidance agent");
   });
 
   it("uses Chinese templates when Comet selects Chinese", async () => {
