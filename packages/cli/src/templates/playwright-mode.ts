@@ -244,7 +244,7 @@ export function playwrightAttachmentsTemplate(): string {
   return `import type { TestInfo } from "@playwright/test";
 
 export async function attachJson(testInfo: TestInfo, name: string, value: unknown): Promise<void> {
-  await testInfo.attach(\`${name}.json\`, {
+  await testInfo.attach(\`\${name}.json\`, {
     body: Buffer.from(JSON.stringify(value, null, 2)),
     contentType: "application/json"
   });
