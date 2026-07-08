@@ -1,29 +1,19 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { initializeProjectGuidance } from "../packages/comet-adapter/src/project-guidance.js";
 
 const targets = [
-  { skillRoot: ".codex/skills", entry: "AGENTS.md" },
-  { skillRoot: ".claude/skills", entry: "CLAUDE.md" },
-  { skillRoot: ".cursor/skills", entry: ".cursor/rules/harness-comet.mdc" },
-  { skillRoot: ".github/skills", entry: ".github/copilot-instructions.md" }
+  { entry: "AGENTS.md" },
+  { entry: "CLAUDE.md" },
+  { entry: ".cursor/rules/harness-comet.mdc" },
+  { entry: ".github/copilot-instructions.md" }
 ];
 
 describe("project guidance initialization", () => {
-  it("patches all supported agent entries idempotently", async () => {
+  it("patches all supported agent entries idempotently without requiring skills", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "project-guidance-"));
-    for (const target of targets) {
-      await mkdir(path.join(root, target.skillRoot, "comet-archive"), { recursive: true });
-      await writeFile(
-        path.join(root, target.skillRoot, "comet-archive", "SKILL.md"),
-        "# archive\n",
-        "utf8"
-      );
-    }
-    await mkdir(path.join(root, ".codex", "skills", "comet-open"), { recursive: true });
-    await writeFile(path.join(root, ".codex", "skills", "comet-open", "SKILL.md"), "# Open\n", "utf8");
     await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
 
     await initializeProjectGuidance(root);
@@ -42,12 +32,6 @@ describe("project guidance initialization", () => {
 
   it("uses Chinese templates when Comet selects Chinese", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "project-guidance-zh-"));
-    await mkdir(path.join(root, ".codex", "skills", "comet-archive"), { recursive: true });
-    await writeFile(
-      path.join(root, ".codex", "skills", "comet-archive", "SKILL.md"),
-      "# archive\n",
-      "utf8"
-    );
     await mkdir(path.join(root, ".comet"), { recursive: true });
     await writeFile(path.join(root, ".comet", "config.yaml"), "language: zh\n", "utf8");
 
@@ -58,5 +42,6 @@ describe("project guidance initialization", () => {
       "# 项目结构"
     );
     expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("项目上下文");
+    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain("项目上下文");
   });
 });
