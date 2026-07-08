@@ -7,6 +7,7 @@ import {
   renderGuidanceEntry
 } from "./project-guidance-entries.js";
 import {
+  playwrightAssetValidatorTemplate,
   rulesTemplate,
   structureTemplate,
   type GuidanceLanguage
@@ -48,6 +49,10 @@ export async function initializeProjectGuidance(
   await fs.mkdir(agentsRoot, { recursive: true });
   await writeIfMissing(path.join(agentsRoot, "rules.md"), rulesTemplate(language));
   await writeIfMissing(path.join(agentsRoot, "structure.md"), structureTemplate(language));
+  await writeIfMissing(
+    path.join(agentsRoot, "scripts", "validate-playwright-assets.mjs"),
+    playwrightAssetValidatorTemplate(language)
+  );
 
   for (const target of selectTargets(options.agents)) {
     await patchEntryFile(

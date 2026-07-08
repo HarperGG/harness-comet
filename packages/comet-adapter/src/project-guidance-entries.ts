@@ -15,9 +15,9 @@ export function renderGuidanceEntry(
 }
 
 function englishBody(): string {
-  return "## Harness-Comet Project Context\n\nRead before changing code:\n\n- Project red lines and engineering guidelines: `.agents/rules.md`\n- Project structure and module responsibilities: `.agents/structure.md`\n\nRespect all project red lines. Feature and bug changes should follow the Comet workflow and complete required Harness-Comet verification.";
+  return "## Harness-Comet Project Context\n\nRead before changing code:\n\n- Project red lines and engineering guidelines: `.agents/rules.md`\n- Project structure and module responsibilities: `.agents/structure.md`\n\nRespect all project red lines. Feature and bug changes should follow the Comet workflow and complete required Harness-Comet verification.\n\nIf you create, update, move, or delete Playwright test assets, run `node .agents/scripts/validate-playwright-assets.mjs` before reporting completion. Passing this command means the generated Playwright assets follow the project placement model; it does not prove business coverage quality.";
 }
 
 function chineseBody(): string {
-  return "## Harness-Comet \u9879\u76ee\u4e0a\u4e0b\u6587\n\n\u4fee\u6539\u4ee3\u7801\u524d\u8bf7\u9605\u8bfb\uff1a\n\n- \u9879\u76ee\u7ea2\u7ebf\u548c\u5de5\u7a0b\u51c6\u5219\uff1a`.agents/rules.md`\n- \u9879\u76ee\u7ed3\u6784\u548c\u6a21\u5757\u804c\u8d23\uff1a`.agents/structure.md`\n\n\u5fc5\u987b\u9075\u5b88\u9879\u76ee\u7ea2\u7ebf\u3002\u9700\u6c42\u3001\u529f\u80fd\u548c Bug \u4fee\u6539\u5e94\u9075\u5faa Comet \u5de5\u4f5c\u6d41\uff0c\u5e76\u5b8c\u6210 Harness-Comet \u8981\u6c42\u7684\u9a8c\u8bc1\u3002";
+  return "## Harness-Comet 项目上下文\n\n修改代码前请阅读：\n\n- 项目红线和工程准则：`.agents/rules.md`\n- 项目结构和模块职责：`.agents/structure.md`\n\n必须遵守项目红线。需求、功能和 Bug 修改应遵循 Comet 工作流，并完成 Harness-Comet 要求的验证。\n\n如果创建、更新、移动或删除了 Playwright 测试资产，交付前必须运行 `node .agents/scripts/validate-playwright-assets.mjs`。该命令通过表示生成的 Playwright 测试资产符合项目放置模型，但不代表业务覆盖质量已被证明。";
 }
