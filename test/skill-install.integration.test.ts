@@ -14,6 +14,22 @@ describe("standalone skill installer", () => {
     expect(result.stdout).toContain("playwright-authoring-decision");
   });
 
+  it("keeps playwright-authoring aligned with the Playwright asset model", async () => {
+    const content = await readFile(
+      path.resolve("packages/comet-adapter/assets/shared-skills/playwright-authoring/SKILL.md"),
+      "utf8"
+    );
+
+    expect(content).toContain("## Required Playwright asset model");
+    expect(content).toContain("<testDir>/journeys/");
+    expect(content).toContain("<testDir>/incidents/");
+    expect(content).toContain("<testDir>/data/");
+    expect(content).toContain("<testDir>/support/");
+    expect(content).toContain("Do not create `<testDir>/fixtures.ts`");
+    expect(content).toContain("Every generated Harness test must include `@harness`");
+    expect(content).toContain("all created or updated files comply with the asset placement contract");
+  });
+
   it("installs one skill into detected Codex, Claude, Cursor, and Copilot projects", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-skill-install-"));
     await mkdir(path.join(root, ".codex"), { recursive: true });
