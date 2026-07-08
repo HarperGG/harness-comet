@@ -12,6 +12,12 @@ import {
   type GuidanceLanguage
 } from "./project-guidance-templates.js";
 
+export type ProjectGuidanceAgent = "all" | "codex" | "claude" | "cursor" | "github-copilot";
+
+export interface ProjectGuidanceInitOptions {
+  agents?: ProjectGuidanceAgent[];
+}
+
 const TARGETS = [
   { id: "codex", entryPath: "AGENTS.md" },
   { id: "claude", entryPath: "CLAUDE.md" },
@@ -22,7 +28,20 @@ const TARGETS = [
   }
 ] as const;
 
-export async function initializeProjectGuidance(projectRoot: string): Promise<void> {
+type GuidanceTarget = (typeof TARGETS)[number];
+
+const VALID_AGENTS = new Set<ProjectGuidanceAgent>([
+  "all",
+  "codex",
+  "claude",
+  "cursor",
+  "github-copilot"
+]);
+
+export async function initializeProjectGuidance(
+  projectRoot: string,
+  options: ProjectGuidanceInitOptions = {}
+): Promise<void> {
   const language = await detectGuidanceLanguage(projectRoot);
 
   const agentsRoot = path.join(projectRoot, ".agents");
@@ -30,12 +49,28 @@ export async function initializeProjectGuidance(projectRoot: string): Promise<vo
   await writeIfMissing(path.join(agentsRoot, "rules.md"), rulesTemplate(language));
   await writeIfMissing(path.join(agentsRoot, "structure.md"), structureTemplate(language));
 
-  for (const target of TARGETS) {
+  for (const target of selectTargets(options.agents)) {
     await patchEntryFile(
       path.join(projectRoot, target.entryPath),
       renderGuidanceEntry(target.id, language)
     );
   }
+}
+
+function selectTargets(agents: ProjectGuidanceAgent[] = ["all"]): GuidanceTarget[] {
+  const normalized = agents.length === 0 ? ["all"] : agents;
+  const invalid = normalized.filter((agent) => !VALID_AGENTS.has(agent));
+  if (invalid.length > 0) {
+    throw new HarnessError({
+      code: "PROJECT_GUIDANCE_AGENT_INVALID",
+      category: "selection",
+      message: `Unknown project guidance agent: ${invalid.join(", ")}`,
+      hint: "Use one of: all, codex, claude, cursor, github-copilot."
+    });
+  }
+  if (normalized.includes("all")) return [...TARGETS];
+  const selected = new Set(normalized);
+  return TARGETS.filter((target) => selected.has(target.id));
 }
 
 async function detectGuidanceLanguage(projectRoot: string): Promise<GuidanceLanguage> {
