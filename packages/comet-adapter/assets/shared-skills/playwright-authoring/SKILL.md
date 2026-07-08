@@ -56,11 +56,10 @@ Do not create:
 The authoring workflow must preserve the current Playwright test asset model. The stage skills own the detailed placement rules, but the entry-point contract is:
 
 ```text
-<testDir>/
-  journeys/    Core long-lived business journeys
-  incidents/   Production issue and incident regressions
-  data/        Fixed input, expected output, and deterministic JSON data
-  support/     Mock, attachment, request capture, canvas, assertion, and helper utilities
+<testDir>/journeys/    Core long-lived business journeys
+<testDir>/incidents/   Production issue and incident regressions
+<testDir>/data/        Fixed input, expected output, and deterministic JSON data
+<testDir>/support/     Mock, attachment, request capture, canvas, assertion, and helper utilities
 ```
 
 A requirement does not need to create all four kinds of assets. Create only the files needed to satisfy the requirement and keep each created or updated file in the correct location.
