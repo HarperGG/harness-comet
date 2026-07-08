@@ -15,7 +15,7 @@ import {
 export type ProjectGuidanceAgent = "all" | "codex" | "claude" | "cursor" | "github-copilot";
 
 export interface ProjectGuidanceInitOptions {
-  agents?: ProjectGuidanceAgent[];
+  agents?: string[];
 }
 
 const TARGETS = [
@@ -30,7 +30,7 @@ const TARGETS = [
 
 type GuidanceTarget = (typeof TARGETS)[number];
 
-const VALID_AGENTS = new Set<ProjectGuidanceAgent>([
+const VALID_AGENTS = new Set<string>([
   "all",
   "codex",
   "claude",
@@ -57,7 +57,7 @@ export async function initializeProjectGuidance(
   }
 }
 
-function selectTargets(agents: ProjectGuidanceAgent[] = ["all"]): GuidanceTarget[] {
+function selectTargets(agents: string[] = ["all"]): GuidanceTarget[] {
   const normalized = agents.length === 0 ? ["all"] : agents;
   const invalid = normalized.filter((agent) => !VALID_AGENTS.has(agent));
   if (invalid.length > 0) {
