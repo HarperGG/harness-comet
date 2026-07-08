@@ -47,6 +47,10 @@ interface LoadedPlaywrightCliProject {
   };
 }
 
+interface ProjectGuidanceInitOptions {
+  agent?: string[];
+}
+
 export async function main(argv = process.argv): Promise<void> {
   if (Number(process.versions.node.split(".")[0]) < 20) {
     process.stderr.write("Node.js >=20 is required\n");
@@ -142,8 +146,18 @@ export function buildProgram(options: { playwrightPassthroughArgs?: string[] } =
     .description("Project knowledge files and Agent entry wiring");
   projectGuidance
     .command("init")
-    .description("Initialize .agents rules/structure files and wire supported Agent entries")
-    .action(withErrors(program, async () => projectGuidanceInitCommand(rootOptions(program))));
+    .description("Initialize .agents rules/structure files and wire Agent entries")
+    .option(
+      "--agent <agent>",
+      "agent entry to initialize: all, codex, claude, cursor, github-copilot",
+      collect,
+      [] as string[]
+    )
+    .action(
+      withErrors(program, async (commandOptions: ProjectGuidanceInitOptions) =>
+        projectGuidanceInitCommand(rootOptions(program), commandOptions)
+      )
+    );
 
   program
     .command("run")
@@ -412,11 +426,14 @@ async function scenarioExplainCommand(global: GlobalOptions, id: string): Promis
   output(global, { ok: true, scenario }, `Scenario ${id}`);
 }
 
-async function projectGuidanceInitCommand(global: GlobalOptions): Promise<void> {
+async function projectGuidanceInitCommand(
+  global: GlobalOptions,
+  options: ProjectGuidanceInitOptions
+): Promise<void> {
   const root = path.resolve(global.root ?? process.cwd());
   const adapter = await loadCometAdapterForProjectGuidance();
-  await adapter.initializeProjectGuidance(root);
-  output(global, { ok: true }, "Initialized project guidance");
+  await adapter.initializeProjectGuidance(root, { agents: options.agent });
+  output(global, { ok: true, agents: options.agent?.length ? options.agent : ["all"] }, "Initialized project guidance");
 }
 
 async function loadPlaywrightCliProject(global: GlobalOptions): Promise<LoadedPlaywrightCliProject> {
@@ -484,9 +501,9 @@ async function tryLoadPlaywrightCliProject(
   };
 }
 
-async function loadCometAdapterForProjectGuidance(): Promise<
-  Pick<typeof import("@hapergg/harness-comet-comet-adapter"), "initializeProjectGuidance">
-> {
+async function loadCometAdapterForProjectGuidance(): Promise<{
+  initializeProjectGuidance: (root: string, options?: { agents?: string[] }) => Promise<void>;
+}> {
   const sourceModuleUrl = new URL("../../comet-adapter/src/index.ts", import.meta.url);
   if (import.meta.url.includes("/packages/cli/src/")) {
     return await import(sourceModuleUrl.href);
