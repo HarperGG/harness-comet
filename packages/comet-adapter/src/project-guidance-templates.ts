@@ -173,9 +173,9 @@ for (const absolutePath of files) {
 }
 
 if (errors.length > 0) {
-  console.error("Playwright asset placement validation failed:\n");
+  console.error("Playwright asset placement validation failed:\\n");
   for (const error of errors) console.error(\`- \${error}\`);
-  console.error("\nUse playwright-authoring, or move each asset to the correct test asset directory.");
+  console.error("\\nUse playwright-authoring, or move each asset to the correct test asset directory.");
   process.exit(1);
 }
 
