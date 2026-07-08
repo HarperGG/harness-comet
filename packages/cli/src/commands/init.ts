@@ -90,7 +90,7 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
   const created: string[] = [];
   const skipped: string[] = [];
   const testDir = options.testDir ?? "tests";
-  const includeHarnessComet = options.includeHarnessComet ?? false;
+  const includeHarnessComet = options.includeHarnessComet ?? options.adapter === "playwright";
 
   await fs.mkdir(path.join(root, testDir, "journeys"), { recursive: true });
   await fs.mkdir(path.join(root, testDir, "incidents"), { recursive: true });
