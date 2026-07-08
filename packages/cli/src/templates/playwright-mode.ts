@@ -215,11 +215,6 @@ test(
 `;
 }
 
-export function playwrightFixturesTemplate(): string {
-  return `export const testBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
-`;
-}
-
 export function playwrightMockApiTemplate(): string {
   return `import type { Page } from "@playwright/test";
 

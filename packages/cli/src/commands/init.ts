@@ -7,7 +7,6 @@ import {
   playwrightAuthoringGuideTemplate,
   playwrightConfigTemplate,
   playwrightExampleSpecTemplate,
-  playwrightFixturesTemplate,
   playwrightHarnessCometConfigTemplate,
   playwrightIncidentGuideTemplate,
   playwrightIncidentReadmeTemplate,
@@ -168,14 +167,6 @@ async function initPlaywrightModeProject(options: InitHarnessOptions): Promise<I
     playwrightAttachmentsTemplate(),
     false,
     `${normalizePath(testDir)}/support/attachments.ts`,
-    created,
-    skipped
-  );
-  await writeFileSafe(
-    path.join(root, testDir, "fixtures.ts"),
-    playwrightFixturesTemplate(),
-    false,
-    `${normalizePath(testDir)}/fixtures.ts`,
     created,
     skipped
   );

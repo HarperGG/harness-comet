@@ -36,7 +36,7 @@ describe("init --mode playwright", () => {
     await expect(fs.stat(path.join(root, "tests", "data", "example-expected-payload.json"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "tests", "support", "mock-api.ts"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "tests", "support", "attachments.ts"))).resolves.toBeTruthy();
-    await expect(fs.stat(path.join(root, "tests", "fixtures.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "tests", "fixtures.ts"))).rejects.toBeTruthy();
     await expect(fs.stat(path.join(root, "docs", "testing", "README.md"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "docs", "testing", "authoring-guide.md"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "docs", "testing", "incident-guide.md"))).resolves.toBeTruthy();
