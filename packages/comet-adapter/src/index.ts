@@ -19,6 +19,7 @@ export * from "./manifest.js";
 export * from "./platforms/registry.js";
 export * from "./platforms/detector.js";
 export * from "./playwright-impact-policy.js";
+export * from "./project-guidance.js";
 export * from "./project-mode.js";
 export * from "./skill-catalog.js";
 export * from "./skills.js";
