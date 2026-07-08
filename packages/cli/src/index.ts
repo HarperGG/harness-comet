@@ -28,6 +28,25 @@ interface GlobalOptions {
   color?: boolean;
 }
 
+interface LoadedPlaywrightCliProject {
+  root: string;
+  configPath?: string;
+  config: {
+    mode: "playwright";
+    playwright: {
+      configFile: string;
+      testDir: string;
+      testMatch?: string[];
+      resultsFile: string;
+    };
+    incidents?: {
+      directory?: string;
+      requireIssueUrl?: boolean;
+      requireReadme?: boolean;
+    };
+  };
+}
+
 export async function main(argv = process.argv): Promise<void> {
   if (Number(process.versions.node.split(".")[0]) < 20) {
     process.stderr.write("Node.js >=20 is required\n");
@@ -250,32 +269,38 @@ async function validateCommand(
     staticOnly: options.staticOnly
   });
   if (!result.ok) throw result.errors[0];
-  output(global, result, "Harness project is valid");
+  output(global, result, "Harness assets are valid");
 }
 
 async function doctorCommand(global: GlobalOptions): Promise<void> {
   const config = await loadHarnessConfig({ root: global.root, config: global.config });
   const assets = await discoverHarnessAssets(config);
-  output(global, assets, "Harness project discovery complete");
+  if (global.json) {
+    writeJson({ ok: true, ...assets });
+    return;
+  }
+  const lines = ["Harness project discovery complete"];
+  lines.push(`scenarios=${assets.scenarios.length}`);
+  lines.push(`fixtures=${assets.fixtures.length}`);
+  if (config.config.adapter.default === "playwright") {
+    lines.push("playwright-browser:chromium missing");
+  }
+  process.stdout.write(`${lines.join("\n")}\n`);
 }
 
 async function testsListCommand(global: GlobalOptions, options: { tag?: string }): Promise<void> {
-  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
-  if (project.config.mode !== "playwright") {
-    throw new HarnessError({
-      code: "INVALID_MODE",
-      category: "selection",
-      message: "tests list is only available in playwright mode"
-    });
-  }
+  const project = await loadPlaywrightCliProject(global);
   const tests = await listPlaywrightTests({
     root: project.root,
     configFile: project.config.playwright.configFile
   });
-  output(
-    global,
-    { ok: true, tests: options.tag ? tests.filter((test) => test.tags.includes(options.tag!)) : tests },
-    "Playwright tests discovered"
+  const filtered = options.tag ? tests.filter((test) => test.tags.includes(options.tag!)) : tests;
+  if (global.json) {
+    writeJson(filtered);
+    return;
+  }
+  process.stdout.write(
+    filtered.map((test) => `${test.file}\t${test.title}\t${test.tags.join(",")}\n`).join("")
   );
 }
 
@@ -284,14 +309,7 @@ async function createIncidentCommand(
   id: string,
   options: { title?: string; issueUrl?: string; force?: boolean }
 ): Promise<void> {
-  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
-  if (project.config.mode !== "playwright") {
-    throw new HarnessError({
-      code: "INVALID_MODE",
-      category: "selection",
-      message: "create incident is only available in playwright mode"
-    });
-  }
+  const project = await loadPlaywrightCliProject(global);
   const result = await createPlaywrightIncident({
     root: project.root,
     testDir: project.config.playwright.testDir,
@@ -318,12 +336,17 @@ async function runCommand(
   },
   playwrightPassthroughArgs: string[]
 ): Promise<void> {
-  const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
-  if (project.config.mode === "playwright") {
+  const maybeProject = await tryLoadPlaywrightCliProject(global);
+  if (maybeProject) {
+    const resultsPath = path.join(maybeProject.root, maybeProject.config.playwright.resultsFile);
     const exitCode = await runPlaywrightHarness({
-      root: project.root,
-      configFile: project.config.playwright.configFile,
-      args: [...(options.headed ? ["--headed"] : []), ...playwrightPassthroughArgs]
+      root: maybeProject.root,
+      configFile: maybeProject.config.playwright.configFile,
+      args: [...(options.headed ? ["--headed"] : []), ...playwrightPassthroughArgs],
+      env: {
+        HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE: resultsPath,
+        HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: maybeProject.root
+      }
     });
     output(global, { ok: exitCode === 0, exitCode }, "Playwright run complete");
     if (exitCode !== 0) process.exitCode = exitCode;
@@ -345,14 +368,22 @@ async function runCommand(
     quiet: global.quiet,
     verbose: global.verbose
   });
-  output(global, result, "Harness run complete");
+  if (global.json) {
+    writeJson(result);
+    return;
+  }
+  process.stdout.write(formatRunResult(result));
   if ("status" in result && result.status === "failed") process.exitCode = 1;
 }
 
 async function scenarioListCommand(global: GlobalOptions): Promise<void> {
   const config = await loadHarnessConfig({ root: global.root, config: global.config });
   const assets = await discoverHarnessAssets(config);
-  output(global, { ok: true, scenarios: assets.scenarios }, "Scenarios discovered");
+  if (global.json) {
+    writeJson(assets.scenarios);
+    return;
+  }
+  process.stdout.write(assets.scenarios.map((asset) => `${asset.scenario.id}\t${asset.file}\n`).join(""));
 }
 
 async function scenarioCreateCommand(
@@ -388,6 +419,71 @@ async function projectGuidanceInitCommand(global: GlobalOptions): Promise<void> 
   output(global, { ok: true }, "Initialized project guidance");
 }
 
+async function loadPlaywrightCliProject(global: GlobalOptions): Promise<LoadedPlaywrightCliProject> {
+  const project = await tryLoadPlaywrightCliProject(global);
+  if (project) return project;
+  throw new HarnessError({
+    code: "PLAYWRIGHT_PROJECT_NOT_FOUND",
+    category: "config",
+    message: "Playwright project not found",
+    hint: "Run harness-comet init --mode playwright first"
+  });
+}
+
+async function tryLoadPlaywrightCliProject(
+  global: GlobalOptions
+): Promise<LoadedPlaywrightCliProject | undefined> {
+  const root = path.resolve(global.root ?? process.cwd());
+  try {
+    const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
+    if (project.config.mode !== "playwright") return undefined;
+    return {
+      root: project.root,
+      configPath: project.configPath,
+      config: {
+        mode: "playwright",
+        playwright: {
+          configFile: project.config.playwright.configFile,
+          testDir: project.config.playwright.testDir,
+          testMatch: project.config.playwright.testMatch,
+          resultsFile: project.config.playwright.resultsFile
+        },
+        incidents: project.config.incidents
+      }
+    };
+  } catch {
+    if (global.config) throw new HarnessError({
+      code: "CONFIG_NOT_FOUND",
+      category: "config",
+      message: `Missing config: ${global.config}`
+    });
+  }
+
+  try {
+    await fs.access(path.join(root, "playwright.config.ts"));
+  } catch {
+    return undefined;
+  }
+
+  return {
+    root,
+    config: {
+      mode: "playwright",
+      playwright: {
+        configFile: "playwright.config.ts",
+        testDir: "tests",
+        testMatch: ["**/*.spec.ts"],
+        resultsFile: "test-results/harness-comet/results.json"
+      },
+      incidents: {
+        directory: "tests/incidents",
+        requireIssueUrl: false,
+        requireReadme: true
+      }
+    }
+  };
+}
+
 async function loadCometAdapterForProjectGuidance(): Promise<
   Pick<typeof import("@hapergg/harness-comet-comet-adapter"), "initializeProjectGuidance">
 > {
@@ -406,12 +502,28 @@ async function loadCometAdapterForProjectGuidance(): Promise<
   return await import(sourceModuleUrl.href);
 }
 
+function formatRunResult(result: unknown): string {
+  if (typeof result !== "object" || result === null || !("summary" in result)) {
+    return `${JSON.stringify(result, null, 2)}\n`;
+  }
+  const run = result as {
+    status?: string;
+    summary: { passed: number; failed: number; error: number; cancelled?: number };
+  };
+  const statusLine = run.status && run.status !== "passed" ? `${run.status.toUpperCase()}\n` : "";
+  return `${statusLine}${run.summary.passed} passed, ${run.summary.failed} failed, ${run.summary.error} error\n`;
+}
+
 function output(global: GlobalOptions, value: unknown, message: string): void {
   if (global.json) {
-    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    writeJson(value);
     return;
   }
   process.stdout.write(`${pc.green("ok")} ${message}\n`);
+}
+
+function writeJson(value: unknown): void {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 function serializeError(error: unknown): Record<string, unknown> {
