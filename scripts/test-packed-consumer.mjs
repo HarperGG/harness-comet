@@ -69,10 +69,14 @@ await run(
 const generatedManifest = JSON.parse(
   await fs.readFile(path.join(consumerRoot, "package.json"), "utf8")
 );
-const playwrightSpec =
-  generatedManifest.devDependencies?.["@hapergg/harness-comet-playwright"];
+const playwrightSpec = generatedManifest.devDependencies?.["@playwright/test"];
 if (!playwrightSpec) {
-  throw new Error("Generated manifest is missing @hapergg/harness-comet-playwright");
+  throw new Error("Generated manifest is missing @playwright/test");
+}
+const harnessPlaywrightSpec =
+  generatedManifest.devDependencies?.["@hapergg/harness-comet-playwright"];
+if (harnessPlaywrightSpec) {
+  throw new Error("Plain Playwright init should not add @hapergg/harness-comet-playwright");
 }
 for (const [name, spec] of Object.entries(generatedManifest.devDependencies ?? {})) {
   if (manifestBeforeInit.devDependencies?.[name] === spec) continue;
@@ -81,32 +85,24 @@ for (const [name, spec] of Object.entries(generatedManifest.devDependencies ?? {
   }
 }
 
-await run(
-  "node",
-  [
-    "--input-type=module",
-    "-e",
-    "console.log(import.meta.resolve('@hapergg/harness-comet-playwright/reporter'))"
-  ],
-  consumerRoot
-);
+await fs.stat(path.join(consumerRoot, "playwright.config.ts"));
+await fs.stat(path.join(consumerRoot, "tests", "harness", "journeys"));
+await fs.stat(path.join(consumerRoot, "tests", "harness", "incidents"));
+await fs.stat(path.join(consumerRoot, "tests", "harness", "data"));
+await fs.stat(path.join(consumerRoot, "tests", "harness", "support"));
+try {
+  await fs.stat(path.join(consumerRoot, "harness-comet.config.ts"));
+  throw new Error("Plain Playwright init should not create harness-comet.config.ts");
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+try {
+  await fs.stat(path.join(consumerRoot, "tests", "harness", "fixtures.ts"));
+  throw new Error("Plain Playwright init should not create tests/harness/fixtures.ts");
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
 await run("pnpm", ["exec", "playwright", "test", "--list"], consumerRoot);
-await run("pnpm", ["exec", "harness-comet", "validate"], consumerRoot);
-await run(
-  "pnpm",
-  [
-    "exec",
-    "harness-comet",
-    "run",
-    "--",
-    "--grep",
-    "__harness_comet_consumer_no_match__",
-    "--pass-with-no-tests"
-  ],
-  consumerRoot
-);
-
-await fs.stat(path.join(consumerRoot, "test-results", "harness-comet", "results.json"));
 console.log(`consumer test passed in ${consumerRoot}`);
 
 async function ensureTarballs() {
@@ -136,5 +132,5 @@ async function readPackedManifest(tarball) {
 }
 
 function toPosix(value) {
-  return value.split(path.sep).join("/");
+  return value.split(path.sep).join(path.posix.sep);
 }
