@@ -200,13 +200,14 @@ async function initCommand(
     testDir: options.testDir,
     install: options.skipInstall ? false : true,
     installBrowsers: options.skipBrowsers ? false : true,
-    overwriteConfig: options.overwriteConfig
+    overwriteConfig: options.overwriteConfig,
+    includeHarnessComet: options.mode === "playwright" ? false : undefined
   });
 
   output(
     global,
     result,
-    "Initialized harness assets"
+    options.mode === "playwright" ? "Initialized Playwright assets" : "Initialized harness assets"
   );
 }
 
@@ -238,93 +239,34 @@ async function validateCommand(
 
   const config = await loadHarnessConfig({ root: global.root, config: global.config });
   const result = await validateHarnessProject(config, {
-    staticOnly: options.staticOnly,
-    scenarioIds: options.scenario ? [options.scenario] : undefined
+    scenario: options.scenario,
+    staticOnly: options.staticOnly
   });
   if (!result.ok) throw result.errors[0];
-  output(
-    global,
-    {
-      ok: true,
-      scenarios: result.assets.scenarios.length,
-      fixtures: result.assets.fixtures.length
-    },
-    "Harness assets are valid"
-  );
+  output(global, result, "Harness project is valid");
 }
 
 async function doctorCommand(global: GlobalOptions): Promise<void> {
-  const checks = [
-    { name: "node", ok: Number(process.versions.node.split(".")[0]) >= 20, detail: process.version }
-  ];
-  try {
-    const config = await loadHarnessConfig({ root: global.root, config: global.config });
-    checks.push({ name: "config", ok: true, detail: config.configPath });
-    const assets = await discoverHarnessAssets(config);
-    if (
-      usesPlaywright(
-        config,
-        assets.scenarios.map((item) => item.scenario.adapter)
-      )
-    ) {
-      try {
-        const { getPlaywrightBrowserDiagnostics } = await import(
-          "@hapergg/harness-comet-adapter-playwright"
-        );
-        const browser = config.config.playwright?.browser ?? "chromium";
-        const diagnostics = await getPlaywrightBrowserDiagnostics(browser);
-        checks.push({
-          name: `playwright-browser:${diagnostics.browser}`,
-          ok: diagnostics.installed,
-          detail: diagnostics.installed
-            ? diagnostics.executablePath
-            : `${diagnostics.issues.join("; ")} (install with: ${diagnostics.installCommand})`
-        });
-      } catch (error) {
-        checks.push({
-          name: "playwright-browser",
-          ok: false,
-          detail: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-  } catch (error) {
-    checks.push({
-      name: "config",
-      ok: false,
-      detail: error instanceof Error ? error.message : String(error)
-    });
-  }
-  output(
-    global,
-    { ok: checks.every((check) => check.ok), checks },
-    checks.map((check) => `${check.ok ? "PASS" : "FAIL"} ${check.name} ${check.detail}`).join("\n")
-  );
+  const config = await loadHarnessConfig({ root: global.root, config: global.config });
+  const assets = await discoverHarnessAssets(config);
+  output(global, assets, "Harness project discovery complete");
 }
 
-async function testsListCommand(
-  global: GlobalOptions,
-  options: { tag?: string }
-): Promise<void> {
+async function testsListCommand(global: GlobalOptions, options: { tag?: string }): Promise<void> {
   const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
   if (project.config.mode !== "playwright") {
     throw new HarnessError({
-      code: "PLAYWRIGHT_MODE_REQUIRED",
-      category: "selection",
+      code: "INVALID_MODE",
+      category: "usage",
       message: "tests list is only available in playwright mode"
     });
   }
-
   const tests = await listPlaywrightTests({
     root: project.root,
-    configFile: project.config.playwright.configFile
+    playwright: project.config.playwright,
+    tag: options.tag
   });
-  const filtered = options.tag ? tests.filter((test) => test.tags.includes(options.tag!)) : tests;
-  output(
-    global,
-    filtered,
-    filtered.map((test) => `${test.file}\t${test.title}\t${test.tags.join(",")}`).join("\n")
-  );
+  output(global, { ok: true, tests }, "Playwright tests discovered");
 }
 
 async function createIncidentCommand(
@@ -335,209 +277,118 @@ async function createIncidentCommand(
   const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
   if (project.config.mode !== "playwright") {
     throw new HarnessError({
-      code: "PLAYWRIGHT_MODE_REQUIRED",
-      category: "selection",
+      code: "INVALID_MODE",
+      category: "usage",
       message: "create incident is only available in playwright mode"
     });
   }
-
   const result = await createPlaywrightIncident({
     root: project.root,
-    testDir: project.config.playwright.testDir,
+    incidents: project.config.incidents,
     id,
     title: options.title,
     issueUrl: options.issueUrl,
     force: options.force
   });
-  output(global, result, `Created incident ${result.id}`);
-}
-
-function usesPlaywright(
-  config: Awaited<ReturnType<typeof loadHarnessConfig>>,
-  scenarioAdapters: Array<string | undefined>
-): boolean {
-  if (config.config.adapter.default === "playwright") return true;
-  return scenarioAdapters.some((adapter) => adapter === "playwright");
-}
-
-async function scenarioListCommand(global: GlobalOptions): Promise<void> {
-  const config = await loadHarnessConfig({ root: global.root, config: global.config });
-  const assets = await discoverHarnessAssets(config);
-  output(
-    global,
-    { scenarios: assets.scenarios.map(({ scenario }) => scenario) },
-    assets.scenarios
-      .map(
-        ({ scenario }) =>
-          `${scenario.id}\t${scenario.title}\t${scenario.adapter ?? config.config.adapter.default}\t${(scenario.tags ?? []).join(",")}`
-      )
-      .join("\n")
-  );
-}
-
-async function scenarioCreateCommand(
-  global: GlobalOptions,
-  id: string,
-  options: { adapter: string }
-): Promise<void> {
-  const config = await loadHarnessConfig({ root: global.root, config: global.config });
-  const file = path.join(config.paths.scenarios, `${id}.scenario.yaml`);
-  await writeScenarioFileSafe(file, scenarioTemplate(options.adapter).replace("example-smoke", id));
-  output(global, { ok: true, file }, `Created ${file}`);
-}
-
-async function writeScenarioFileSafe(file: string, content: string): Promise<void> {
-  try {
-    await fs.access(file);
-    throw new HarnessError({
-      code: "SCENARIO_ALREADY_EXISTS",
-      category: "config",
-      message: `Scenario already exists: ${file}`
-    });
-  } catch (error) {
-    if (error instanceof HarnessError) throw error;
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
-  await fs.writeFile(file, content, "utf8");
-}
-
-async function scenarioExplainCommand(global: GlobalOptions, id: string): Promise<void> {
-  const config = await loadHarnessConfig({ root: global.root, config: global.config });
-  const assets = await discoverHarnessAssets(config);
-  const asset = assets.scenarios.find((item) => item.scenario.id === id);
-  if (!asset)
-    throw new HarnessError({
-      code: "SCENARIO_NOT_FOUND",
-      category: "selection",
-      message: `Scenario not found: ${id}`
-    });
-  output(
-    global,
-    asset,
-    [
-      `Scenario: ${asset.scenario.id}`,
-      `File: ${asset.file}`,
-      `Fixtures: ${(asset.scenario.fixtureRefs ?? []).join(", ") || "-"}`,
-      `Steps: ${asset.scenario.steps.map((step) => step.action).join(", ") || "-"}`,
-      `Assertions: ${asset.scenario.assertions.map((assertion) => `${assertion.inspect} -> ${assertion.oracle}`).join(", ") || "-"}`,
-      `Run: harness-comet run --scenario ${asset.scenario.id}`
-    ].join("\n")
-  );
+  output(global, result, `Created incident scaffold ${id}`);
 }
 
 async function runCommand(
   global: GlobalOptions,
   options: {
-    scenario: string[];
-    tag: string[];
+    scenario?: string[];
+    tag?: string[];
     all?: boolean;
     adapter?: string;
     workers?: number;
     timeout?: number;
     failFast?: boolean;
-    headed?: boolean;
     dryRun?: boolean;
+    headed?: boolean;
   },
   playwrightPassthroughArgs: string[]
 ): Promise<void> {
   const project = await loadHarnessCometConfig({ root: global.root, config: global.config });
   if (project.config.mode === "playwright") {
-    if (options.scenario.length) {
-      throw new HarnessError({
-        code: "PLAYWRIGHT_RUNTIME_FLAG",
-        category: "selection",
-        message:
-          "--scenario is only supported in runtime mode; pass Playwright file filters after -- in playwright mode"
-      });
-    }
-    const args = [...playwrightPassthroughArgs];
-    if (options.headed && !args.includes("--headed")) args.push("--headed");
-    const resultsPath = path.join(project.root, project.config.playwright.resultsFile);
-    const code = await runPlaywrightHarness({
+    const result = await runPlaywrightHarness({
       root: project.root,
-      configFile: project.config.playwright.configFile,
-      args,
-      env: {
-        HARNESS_COMET_PLAYWRIGHT_RESULTS_OUTPUT_FILE: resultsPath,
-        HARNESS_COMET_PLAYWRIGHT_PROJECT_ROOT: project.root
-      }
+      playwright: project.config.playwright,
+      headed: options.headed,
+      passthroughArgs: playwrightPassthroughArgs
     });
-    process.exitCode = code;
+    output(global, result, "Playwright run complete");
+    if (result.status === "failed") process.exitCode = 1;
     return;
   }
 
-  const result = await runHarness({
-    root: global.root,
-    config: global.config,
-    scenarioIds: options.scenario,
-    tags: options.tag,
+  const config = await loadHarnessConfig({ root: global.root, config: global.config });
+  const result = await runHarness(config, {
+    scenario: options.scenario,
+    tag: options.tag,
     all: options.all,
     adapter: options.adapter,
     workers: options.workers,
-    timeoutMs: options.timeout,
+    timeout: options.timeout,
     failFast: options.failFast,
-    dryRun: options.dryRun,
-    json: global.json,
-    quiet: global.quiet,
-    verbose: global.verbose
+    dryRun: options.dryRun
   });
-  if ("dryRun" in result) {
-    output(global, result, formatDryRun(result));
+  output(global, result, "Harness run complete");
+  if (result.status === "failed") process.exitCode = 1;
+}
+
+async function scenarioListCommand(global: GlobalOptions): Promise<void> {
+  const config = await loadHarnessConfig({ root: global.root, config: global.config });
+  const assets = await discoverHarnessAssets(config);
+  output(global, { ok: true, scenarios: assets.scenarios }, "Scenarios discovered");
+}
+
+async function scenarioCreateCommand(
+  global: GlobalOptions,
+  id: string,
+  options: { adapter?: string }
+): Promise<void> {
+  const config = await loadHarnessConfig({ root: global.root, config: global.config });
+  const scenarioPath = path.join(config.root, config.config.paths.scenarios, `${id}.scenario.yaml`);
+  await fs.mkdir(path.dirname(scenarioPath), { recursive: true });
+  await fs.writeFile(scenarioPath, scenarioTemplate(options.adapter ?? "memory"), "utf8");
+  output(global, { ok: true, created: [scenarioPath] }, `Created scenario ${id}`);
+}
+
+async function scenarioExplainCommand(global: GlobalOptions, id: string): Promise<void> {
+  const config = await loadHarnessConfig({ root: global.root, config: global.config });
+  const assets = await discoverHarnessAssets(config);
+  const scenario = assets.scenarios.find((candidate) => candidate.id === id);
+  if (!scenario) {
+    throw new HarnessError({
+      code: "SCENARIO_NOT_FOUND",
+      category: "usage",
+      message: `Scenario not found: ${id}`
+    });
+  }
+  output(global, { ok: true, scenario }, `Scenario ${id}`);
+}
+
+function output(global: GlobalOptions, value: unknown, message: string): void {
+  if (global.json) {
+    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
     return;
   }
-  process.exitCode = mapErrorToExitCode(result);
-  output(global, result, formatRunResult(result));
+  process.stdout.write(`${pc.green("ok")} ${message}\n`);
 }
 
-function formatDryRun(result: DryRunResult): string {
-  return result.scenarios
-    .map(
-      (scenario) =>
-        `${scenario.id}: adapter=${scenario.adapter} fixtures=${scenario.fixtures.join(",") || "-"} actions=${scenario.actions.join(",")}`
-    )
-    .join("\n");
-}
-
-function formatRunResult(result: Awaited<ReturnType<typeof runHarness>>): string {
-  if ("dryRun" in result) return formatDryRun(result);
-  const lines = [
-    "Scenario                  Status   Duration",
-    "------------------------------------------------"
-  ];
-  for (const scenario of result.scenarios) {
-    lines.push(
-      `${scenario.id.padEnd(25)} ${scenario.status.toUpperCase().padEnd(8)} ${scenario.durationMs}ms`
-    );
-    for (const error of scenario.errors ?? []) {
-      lines.push(`  ${error.code}: ${error.message}`);
-    }
-    for (const assertion of scenario.assertions) {
-      if (assertion.status === "failed") {
-        lines.push(`  ${assertion.id}: ${JSON.stringify(assertion.differences ?? [])}`);
-      }
-    }
+function serializeError(error: unknown): Record<string, unknown> {
+  if (error instanceof HarnessError) {
+    return error.toJSON();
   }
-  lines.push(
-    `${result.summary.passed} passed, ${result.summary.failed} failed, ${result.summary.error} error`
-  );
-  return lines.join("\n");
+  return {
+    code: "UNKNOWN",
+    message: error instanceof Error ? error.message : String(error)
+  };
 }
 
-function output(global: GlobalOptions, json: unknown, text: string): void {
-  process.stdout.write(`${global.json ? JSON.stringify(json, null, 2) : text}\n`);
-}
-
-function serializeError(error: unknown): unknown {
-  if (error instanceof HarnessError) return error.toJSON();
-  if (error instanceof Error) return { message: error.message };
-  return { message: String(error) };
-}
-
-function splitArgv(argv: string[]): { commandArgv: string[]; passthroughArgs: string[] } {
+export function splitArgv(argv: string[]): { commandArgv: string[]; passthroughArgs: string[] } {
   const separatorIndex = argv.indexOf("--");
-  if (separatorIndex === -1) {
-    return { commandArgv: argv, passthroughArgs: [] };
-  }
+  if (separatorIndex === -1) return { commandArgv: argv, passthroughArgs: [] };
   return {
     commandArgv: argv.slice(0, separatorIndex),
     passthroughArgs: argv.slice(separatorIndex + 1)
