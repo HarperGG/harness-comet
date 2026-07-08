@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { execa } from "execa";
 import { describe, expect, it } from "vitest";
-import { HARNESS_COMET_PLAYWRIGHT_DEPENDENCY } from "../packages/cli/src/package-info.js";
 const bin = path.resolve("packages/cli/src/dev-bin.ts");
 const cli = ["tsx", bin];
 
@@ -14,7 +13,7 @@ async function tempProject(): Promise<string> {
 describe("init --mode playwright", () => {
   const legacyPlaywrightPackage = ["@harness", "comet/playwright"].join("-");
 
-  it("creates a minimal Playwright mode project", async () => {
+  it("creates a minimal Playwright project without Harness-Comet config", async () => {
     const root = await tempProject();
     const result = await execa("pnpm", [
       ...cli,
@@ -29,7 +28,7 @@ describe("init --mode playwright", () => {
     ]);
 
     expect(result.exitCode).toBe(0);
-    await expect(fs.stat(path.join(root, "harness-comet.config.ts"))).resolves.toBeTruthy();
+    await expect(fs.stat(path.join(root, "harness-comet.config.ts"))).rejects.toBeTruthy();
     await expect(fs.stat(path.join(root, "playwright.config.ts"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "tests", "journeys", "example-save-flow.spec.ts"))).resolves.toBeTruthy();
     await expect(fs.stat(path.join(root, "tests", "incidents", "README.md"))).resolves.toBeTruthy();
@@ -44,7 +43,7 @@ describe("init --mode playwright", () => {
     await expect(fs.stat(path.join(root, "docs", "testing", "acceptance-criteria.md"))).resolves.toBeTruthy();
   });
 
-  it("adds Playwright dependencies unless skipped", async () => {
+  it("adds only Playwright dependencies unless skipped", async () => {
     const root = await tempProject();
     await fs.writeFile(path.join(root, "package.json"), JSON.stringify({ name: "target", private: true }, null, 2));
 
@@ -66,14 +65,12 @@ describe("init --mode playwright", () => {
       peerDependencies?: Record<string, string>;
     };
     expect(pkg.devDependencies["@playwright/test"]).toBe("^1.60.0");
-    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).toBe(HARNESS_COMET_PLAYWRIGHT_DEPENDENCY);
-    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toMatch(/^file:/);
-    expect(pkg.devDependencies["@hapergg/harness-comet-playwright"]).not.toContain("workspace:");
+    expect(pkg.devDependencies).not.toHaveProperty("@hapergg/harness-comet-playwright");
     expect(pkg.devDependencies).not.toHaveProperty(legacyPlaywrightPackage);
     expect(pkg.peerDependencies).toBeUndefined();
   });
 
-  it("writes a richer Playwright config template", async () => {
+  it("writes a plain Playwright config template", async () => {
     const root = await tempProject();
     await execa("pnpm", [
       ...cli,
@@ -91,7 +88,7 @@ describe("init --mode playwright", () => {
     expect(config).toContain('testMatch: ["**/*.spec.ts"]');
     expect(config).toContain("fullyParallel: true");
     expect(config).toContain('forbidOnly: Boolean(process.env.CI)');
-    expect(config).toContain('["@hapergg/harness-comet-playwright/reporter"]');
+    expect(config).not.toContain('@hapergg/harness-comet-playwright/reporter');
     expect(config).toContain('screenshot: "only-on-failure"');
     expect(config).toContain('video: "retain-on-failure"');
     expect(config).toContain('name: "chromium"');
@@ -134,17 +131,17 @@ describe("init --mode playwright", () => {
       path.join(root, "tests", "journeys", "example-save-flow.spec.ts"),
       "utf8"
     );
-    expect(spec).toContain('tag: ["@harness", "@annotation-save"]');
+    expect(spec).toContain('tag: ["@annotation-save"]');
+    expect(spec).not.toContain("@harness");
     expect(spec).toContain("attachJson");
     expect(spec).toContain("mockJson");
+    expect(spec).toContain("http://playwright.local");
 
     const helper = await fs.readFile(path.join(root, "tests", "support", "attachments.ts"), "utf8");
     expect(helper).toContain("testInfo.attach");
 
-    const harnessConfig = await fs.readFile(path.join(root, "harness-comet.config.ts"), "utf8");
-    expect(harnessConfig).not.toContain("defaultMode");
-    expect(harnessConfig).not.toContain("requireOpenImpact");
-    expect(harnessConfig).not.toContain("requireDesignDecision");
-    expect(harnessConfig).not.toContain("requireVerifyEvidence");
+    const testingReadme = await fs.readFile(path.join(root, "docs", "testing", "README.md"), "utf8");
+    expect(testingReadme).toContain("This project uses Playwright for browser tests.");
+    expect(testingReadme).not.toContain("Harness-Comet");
   });
 });
