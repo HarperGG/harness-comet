@@ -540,9 +540,12 @@ async function writeVerificationReport(
   const lines = [
     `# Harness Verification Report`,
     ``,
+    `## Harness Verification`,
+    ``,
     `- Change: ${receipt.change}`,
     `- Status: ${receipt.status}`,
     `- Reused receipt: ${reused}`,
+    `- Receipt: \`openspec/changes/${receipt.change}/.comet/harness/verify-receipt.json\``,
     `- Git tree: ${receipt.gitTreeHash}`,
     `- Config hash: ${receipt.configHash}`,
     `- Asset hash: ${receipt.assetHash}`,
@@ -560,17 +563,21 @@ async function writePlaywrightVerificationReport(
   reused = false
 ): Promise<void> {
   const lines = [
-    `# Harness Playwright Verification`,
+    `# Harness Playwright Verification Report`,
+    ``,
+    `## Harness Playwright Verification`,
     ``,
     `- Change: ${receipt.change}`,
     `- Action: ${receipt.action}`,
-    `- Status: ${receipt.status}`,
+    `- Status: ${receipt.status.toUpperCase()}`,
     `- Reused receipt: ${reused}`,
+    `- Receipt: \`openspec/changes/${receipt.change}/.comet/harness/verify-receipt.json\``,
+    `- Results: \`${receipt.resultsPath}\``,
+    `- Results path: ${receipt.resultsPath}`,
     `- Git tree: ${receipt.gitTreeHash}`,
     `- Config hash: ${receipt.configHash}`,
     `- Asset hash: ${receipt.assetHash}`,
     `- Target tests: ${receipt.targetTests.join(", ") || "none"}`,
-    `- Results path: ${receipt.resultsPath}`,
     `- Evidence count: ${receipt.evidenceCount}`,
     ...(reason ? [`- Reason: ${reason}`] : []),
     ``
@@ -586,6 +593,8 @@ async function writeVerificationSkipReport(
 ): Promise<void> {
   const lines = [
     `# Harness Verification Report`,
+    ``,
+    `## Harness Verification`,
     ``,
     `- Change: ${change}`,
     `- Status: skipped`,
