@@ -18,15 +18,13 @@ Do not create new tests or redesign the plan during verification.
 Run applicable checks:
 
 ```bash
-pnpm exec harness-comet validate
-pnpm exec harness-comet tests list
 pnpm exec playwright test --list
 ```
 
 Run every created, updated, or explicitly selected `verify` target, preferably with:
 
 ```bash
-pnpm exec harness-comet run -- <target-test-file>
+pnpm exec playwright test <target-test-file>
 ```
 
 Also run relevant lint and type checks when available.
