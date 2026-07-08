@@ -13,6 +13,10 @@ export const PLAYWRIGHT_COMET_REPLACEMENT_FILES = [
 ] as const;
 
 export const PLAYWRIGHT_SHARED_SKILL_FILES = [
+  "playwright-authoring/SKILL.md",
+  "playwright-planner/SKILL.md",
+  "playwright-generator/SKILL.md",
+  "playwright-healer/SKILL.md",
   "playwright-impact-analysis/SKILL.md",
   "playwright-authoring-decision/SKILL.md",
   "playwright-authoring-plan/SKILL.md",

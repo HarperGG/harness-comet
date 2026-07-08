@@ -1,6 +1,6 @@
 ---
 name: playwright-authoring
-description: Explicitly invoked standalone workflow that analyzes a concrete requirement, records an authoring decision, plans, implements, and verifies complete project-consistent Playwright assets without requiring Comet.
+description: Explicitly invoked standalone workflow that orchestrates playwright-planner, playwright-generator, and playwright-healer to create project-consistent Playwright test assets using the journeys/incidents/data/support placement model.
 ---
 
 # Playwright Authoring
@@ -12,21 +12,29 @@ This skill is explicit-invocation only.
 Activate only when:
 
 1. the user explicitly selects, invokes, or names `playwright-authoring`; and
-2. the request includes a concrete requirement, bug description, acceptance criterion, or user workflow.
+2. the request includes a concrete requirement, bug description, acceptance criterion, user workflow, approved test plan, or failing Playwright test target.
 
 Do not activate from topic similarity or a general Playwright question.
 
-If explicitly invoked without a concrete requirement, ask for exactly one concrete requirement before inspecting or modifying the repository.
+If explicitly invoked without a concrete requirement, plan, or failing target, ask for exactly one concrete requirement before inspecting or modifying the repository.
 
 ## Responsibility
 
-Orchestrate the shared Playwright authoring stages in standalone mode so that standalone and Comet workflows use the same analysis, decision, planning, implementation, and verification contracts.
+Orchestrate the Playwright authoring loop:
 
-This skill must not duplicate or weaken stage rules. The stage skills are the source of truth.
+```text
+playwright-planner -> playwright-generator -> playwright-healer
+```
+
+Use this skill as the user-facing entry point. Delegate the detailed stage work to the three focused skills:
+
+- `playwright-planner`: inspect the repository, classify the requirement, and produce an asset plan;
+- `playwright-generator`: create or update only the assets declared by the approved plan;
+- `playwright-healer`: run, diagnose, and minimally repair failing generated or existing Playwright assets.
+
+Do not require the user to invoke the stage skills manually. Use them internally unless the user explicitly asks for only one stage.
 
 ## Storage mode
-
-Use `playwright-authoring-standalone-adapter`.
 
 Persist workflow metadata in one session document:
 
@@ -34,100 +42,130 @@ Persist workflow metadata in one session document:
 docs/testing/authoring/<session-id>.md
 ```
 
-Do not create a Comet/OpenSpec change, `.comet.yaml`, or Comet phase state.
+Derive `<session-id>` from a concise, filesystem-safe requirement name. Reuse an explicitly supplied session path when present.
+
+Do not create:
+
+- `openspec/changes/...`;
+- `.comet.yaml`;
+- Comet phase state;
+- `.harness-comet/manifest.json` entries.
+
+## Playwright asset placement model
+
+The authoring workflow must preserve the current Playwright test asset model. The stage skills own the detailed placement rules, but the entry-point contract is:
+
+```text
+<testDir>/
+  journeys/    Core long-lived business journeys
+  incidents/   Production issue and incident regressions
+  data/        Fixed input, expected output, and deterministic JSON data
+  support/     Mock, attachment, request capture, canvas, assertion, and helper utilities
+```
+
+A requirement does not need to create all four kinds of assets. Create only the files needed to satisfy the requirement and keep each created or updated file in the correct location.
 
 ## Required workflow
 
-### 1. Analyze impact
+### 1. Plan
 
-Execute `playwright-impact-analysis` with the concrete requirement and repository context.
+Invoke `playwright-planner` with:
 
-Persist its normalized output through `playwright-authoring-standalone-adapter` under:
+- the original user requirement, bug report, acceptance criterion, workflow, approved plan, or failing target;
+- current repository context;
+- any existing authoring session document.
 
-```md
-## Playwright Impact Analysis
-```
+The planner must produce or update a plan that includes:
 
-### 2. Record the authoring decision
+- resolved Playwright test directory;
+- requirement classification;
+- asset intent;
+- real application boundary;
+- planned asset paths;
+- fixture and network strategy;
+- expected evidence;
+- verification commands.
 
-Execute `playwright-authoring-decision` in `standalone` context.
-
-Explicit invocation authorizes entering the authoring workflow, but ambiguous target selection must still be resolved according to the decision skill.
-
-Persist the result under:
-
-```md
-## Playwright Authoring Decision
-```
-
-If `enabled` is false, write the decision and stop without modifying Playwright assets.
-
-### 3. Produce the plan
-
-Execute `playwright-authoring-plan` using:
-
-- the original requirement;
-- impact analysis;
-- confirmed decision;
-- current repository context.
-
-Persist the result under:
+Persist the planner output under:
 
 ```md
-## Playwright Authoring Plan
+## Playwright Plan
 ```
 
-### 4. Implement the plan
+### 2. Generate
 
-Execute `playwright-authoring-build` using the approved plan.
+Invoke `playwright-generator` with the approved or explicit plan.
 
-Do not add undeclared targets or redesign scope.
+The generator must:
 
-Persist the build result under:
+- create, update, or retire only planned assets;
+- place specs, data, and support files according to the asset placement model;
+- reuse existing project fixtures, helpers, data, Page Objects, and selectors when appropriate;
+- keep generated tests tied to the real application boundary;
+- report any new required asset by updating the plan before writing it.
+
+Persist the generator output under:
 
 ```md
-## Playwright Build Result
+## Playwright Generation
 ```
 
-### 5. Verify the assets
+### 3. Heal and verify
 
-Execute `playwright-authoring-verify` against every declared runnable target.
+Invoke `playwright-healer` when:
 
-Persist the result under:
+- generation produced runnable test targets;
+- the user supplied failing Playwright output;
+- an existing target needs repair;
+- verification fails after generation.
+
+The healer must:
+
+- run or inspect the target command;
+- diagnose the failure cause;
+- apply the smallest safe repair to the correct asset location;
+- preserve business coverage and avoid weakening assertions;
+- report product defects instead of hiding them in test code;
+- rerun verification when possible.
+
+Persist the healer output under:
 
 ```md
-## Playwright Verification
+## Playwright Healing and Verification
 ```
 
-Do not report success when execution failed, was blocked, or did not exercise the planned production boundary.
+## Session document format
 
-## Final response
+Write or update the session document with these sections:
+
+```md
+# Playwright Authoring: <title>
+
+## Requirement
+
+## Playwright Plan
+
+## Playwright Generation
+
+## Playwright Healing and Verification
+
+## Final Asset Summary
+```
+
+The session document is workflow metadata, not the source of truth for test execution.
+
+## Required final response
 
 Report:
 
-- standalone session document path;
+- session document path;
 - created, updated, and retired files;
-- reused fixtures and support assets;
+- which files went under `journeys`, `incidents`, `data`, and `support` when applicable;
 - real route and production source paths exercised;
+- reused fixtures, data, and support assets;
 - verification commands and outcomes;
+- healer repairs, if any;
 - blockers or product defects;
 - whether every requirement was covered.
 
-## Consistency requirement
-
-Given the same requirement, confirmed target decision, repository state, and approved plan, this standalone workflow must produce the same core Playwright assets as the Comet workflow.
-
-Allowed differences are limited to workflow metadata storage:
-
-- standalone metadata lives in `docs/testing/authoring/<session-id>.md`;
-- Comet metadata may live in Comet-native phase documents and verification records.
-
-The following must not differ by workflow mode:
-
-- real application boundary;
-- test path selection;
-- fixture and network strategy;
-- assertions;
-- tags;
-- Playwright asset contents;
-- verification standards;
+Do not report success when execution failed, was blocked, or did not exercise the planned production boundary.

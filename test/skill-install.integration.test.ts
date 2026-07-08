@@ -11,7 +11,41 @@ describe("standalone skill installer", () => {
   it("lists skills from the packaged shared catalog", async () => {
     const result = await execa("pnpm", [...cli, "skill", "list"]);
     expect(result.stdout).toContain("playwright-authoring");
+    expect(result.stdout).toContain("playwright-planner");
+    expect(result.stdout).toContain("playwright-generator");
+    expect(result.stdout).toContain("playwright-healer");
     expect(result.stdout).toContain("playwright-authoring-decision");
+  });
+
+  it("keeps playwright-authoring wired to planner, generator, healer, and the asset placement model", async () => {
+    const content = await readFile(
+      path.resolve("packages/comet-adapter/assets/shared-skills/playwright-authoring/SKILL.md"),
+      "utf8"
+    );
+
+    expect(content).toContain("playwright-planner -> playwright-generator -> playwright-healer");
+    expect(content).toContain("Invoke `playwright-planner`");
+    expect(content).toContain("Invoke `playwright-generator`");
+    expect(content).toContain("Invoke `playwright-healer`");
+    expect(content).toContain("<testDir>/journeys/");
+    expect(content).toContain("<testDir>/incidents/");
+    expect(content).toContain("<testDir>/data/");
+    expect(content).toContain("<testDir>/support/");
+    expect(content).toContain("Create only the files needed to satisfy the requirement");
+  });
+
+  it("keeps the stage skills aligned with the Playwright asset placement model", async () => {
+    for (const skill of ["playwright-planner", "playwright-generator", "playwright-healer"]) {
+      const content = await readFile(
+        path.resolve(`packages/comet-adapter/assets/shared-skills/${skill}/SKILL.md`),
+        "utf8"
+      );
+
+      expect(content).toContain("<testDir>/journeys/");
+      expect(content).toContain("<testDir>/incidents/");
+      expect(content).toContain("<testDir>/data/");
+      expect(content).toContain("<testDir>/support/");
+    }
   });
 
   it("installs one skill into detected Codex, Claude, Cursor, and Copilot projects", async () => {
@@ -27,7 +61,7 @@ describe("standalone skill installer", () => {
       root,
       "skill",
       "install",
-      "playwright-authoring-decision"
+      "playwright-generator"
     ]);
 
     expect(result.stdout).toContain("codex");
@@ -36,22 +70,22 @@ describe("standalone skill installer", () => {
     expect(result.stdout).toContain("github-copilot");
 
     const codex = await readFile(
-      path.join(root, ".codex", "skills", "playwright-authoring-decision", "SKILL.md"),
+      path.join(root, ".codex", "skills", "playwright-generator", "SKILL.md"),
       "utf8"
     );
     const claude = await readFile(
-      path.join(root, ".claude", "skills", "playwright-authoring-decision", "SKILL.md"),
+      path.join(root, ".claude", "skills", "playwright-generator", "SKILL.md"),
       "utf8"
     );
     const cursor = await readFile(
-      path.join(root, ".cursor", "skills", "playwright-authoring-decision", "SKILL.md"),
+      path.join(root, ".cursor", "skills", "playwright-generator", "SKILL.md"),
       "utf8"
     );
     const copilot = await readFile(
-      path.join(root, ".github", "skills", "playwright-authoring-decision", "SKILL.md"),
+      path.join(root, ".github", "skills", "playwright-generator", "SKILL.md"),
       "utf8"
     );
-    expect(codex).toContain("name: playwright-authoring-decision");
+    expect(codex).toContain("name: playwright-generator");
     expect(claude).toBe(codex);
     expect(cursor).toBe(codex);
     expect(copilot).toBe(codex);
@@ -67,7 +101,7 @@ describe("standalone skill installer", () => {
         root,
         "skill",
         "install",
-        "playwright-authoring-decision",
+        "playwright-generator",
         "--platform",
         "gemini"
       ],
