@@ -34,8 +34,6 @@ existing fixtures, Page Objects, helpers, and test data
 Run when available:
 
 ```bash
-pnpm exec harness-comet --json validate
-pnpm exec harness-comet tests list
 pnpm exec playwright test --list
 ```
 

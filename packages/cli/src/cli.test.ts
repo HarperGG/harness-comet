@@ -4,11 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { initHarnessProject } from "./commands/init.js";
 import { buildProgram } from "./index.js";
-import {
-  HARNESS_COMET_ADAPTER_MEMORY_PACKAGE,
-  HARNESS_COMET_PLAYWRIGHT_DEPENDENCY,
-  HARNESS_COMET_PLAYWRIGHT_PACKAGE
-} from "./package-info.js";
+import { HARNESS_COMET_ADAPTER_MEMORY_PACKAGE } from "./package-info.js";
 
 describe("cli init", () => {
   const legacyPlaywrightPackage = ["@harness", "comet/playwright"].join("-");
@@ -36,7 +32,7 @@ describe("cli init", () => {
     ).resolves.toContain("memory.set");
   });
 
-  it("writes npm package specs for Playwright mode dependencies", async () => {
+  it("writes npm package specs for plain Playwright mode dependencies", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "harness-cli-playwright-"));
     const program = buildProgram();
     await program.parseAsync([
@@ -57,11 +53,8 @@ describe("cli init", () => {
       peerDependencies?: Record<string, string>;
     };
 
-    expect(pkg.devDependencies?.[HARNESS_COMET_PLAYWRIGHT_PACKAGE]).toBe(
-      HARNESS_COMET_PLAYWRIGHT_DEPENDENCY
-    );
-    expect(pkg.devDependencies?.[HARNESS_COMET_PLAYWRIGHT_PACKAGE]).not.toMatch(/^file:/);
-    expect(pkg.devDependencies?.[HARNESS_COMET_PLAYWRIGHT_PACKAGE]).not.toContain("workspace:");
+    expect(pkg.devDependencies?.["@playwright/test"]).toBe("^1.60.0");
+    expect(pkg.devDependencies).not.toHaveProperty("@hapergg/harness-comet-playwright");
     expect(pkg.devDependencies).not.toHaveProperty(legacyPlaywrightPackage);
     expect(pkg.peerDependencies).toBeUndefined();
   });

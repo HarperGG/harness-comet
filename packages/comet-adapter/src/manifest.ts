@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { SUPPORTED_COMET_RANGE } from "./compatibility/version.js";
-import { initializeProjectGuidance } from "./project-guidance.js";
 import type {
   AgentTargetManifestRecord,
   HarnessCometManifestV1,
@@ -46,9 +45,7 @@ export async function writeManifest(
   const merged = new Map<string, AgentTargetManifestRecord>();
   for (const record of existing?.targets ?? []) merged.set(record.platformId, record);
   for (const record of records) merged.set(record.platformId, record);
-  const manifestPath = await replaceManifest(projectRoot, [...merged.values()]);
-  await initializeProjectGuidance(projectRoot);
-  return manifestPath;
+  return await replaceManifest(projectRoot, [...merged.values()]);
 }
 
 export async function replaceManifest(

@@ -68,7 +68,7 @@ exit 0
 }
 
 describe("unified setup command", () => {
-  it("initializes Playwright Harness, Comet, and shared agent guidance", async () => {
+  it("initializes Playwright Harness and Comet without project guidance", async () => {
     process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
     const root = await mkdtemp(path.join(tmpdir(), "harness-comet-setup-"));
     await mkdir(path.join(root, ".codex"), { recursive: true });
@@ -100,6 +100,42 @@ describe("unified setup command", () => {
     expect(openSkill).toContain("HARNESS-COMET:BEGIN open-impact");
     expect(openSkill).toContain("playwright-impact-analysis");
 
+    await expect(readFile(path.join(root, ".agents", "rules.md"), "utf8")).rejects.toBeTruthy();
+    await expect(readFile(path.join(root, ".agents", "structure.md"), "utf8")).rejects.toBeTruthy();
+
+    const agents = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(agents).toContain("# Existing instructions");
+    expect(agents).not.toContain("HARNESS-COMET:BEGIN project-context");
+    expect(agents).not.toContain(".agents/rules.md");
+    expect(agents).not.toContain(".agents/structure.md");
+
+    const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toContain("node_modules\n");
+    expect(gitignore).toContain("playwright-report\n");
+    expect(gitignore).toContain("test-results\n");
+    expect(gitignore.match(/^playwright-report$/gm)).toHaveLength(1);
+  });
+
+  it("initializes project guidance only when explicitly requested", async () => {
+    process.env.HARNESS_COMET_COMET_BIN = await createFakeComet();
+    const root = await mkdtemp(path.join(tmpdir(), "harness-comet-guidance-"));
+    await mkdir(path.join(root, ".codex"), { recursive: true });
+    await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
+
+    await execa("pnpm", [
+      ...cli,
+      "--root",
+      root,
+      "setup",
+      "--mode",
+      "playwright",
+      "--skip-install",
+      "--skip-browsers",
+      "--yes"
+    ]);
+
+    await execa("pnpm", [...cli, "--root", root, "project-guidance", "init"]);
+
     const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
     const structure = await readFile(path.join(root, ".agents", "structure.md"), "utf8");
     expect(rules).toContain("# Project Rules");
@@ -110,12 +146,6 @@ describe("unified setup command", () => {
     expect(agents).toContain("HARNESS-COMET:BEGIN project-context");
     expect(agents).toContain(".agents/rules.md");
     expect(agents).toContain(".agents/structure.md");
-
-    const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");
-    expect(gitignore).toContain("node_modules\n");
-    expect(gitignore).toContain("playwright-report\n");
-    expect(gitignore).toContain("test-results\n");
-    expect(gitignore.match(/^playwright-report$/gm)).toHaveLength(1);
   });
 
   it("prints a user-facing browser install command for Playwright setup", async () => {

@@ -25,7 +25,14 @@ export function playwrightHarnessCometConfigTemplate(testDir = "tests"): string 
 `;
 }
 
-export function playwrightConfigTemplate(testDir = "tests"): string {
+export function playwrightConfigTemplate(
+  testDir = "tests",
+  options: { includeHarnessReporter?: boolean } = {}
+): string {
+  const reporter = options.includeHarnessReporter
+    ? `[["list"], ["html", { open: "never" }], ["@hapergg/harness-comet-playwright/reporter"]]`
+    : `[["list"], ["html", { open: "never" }]]`;
+
   return `import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
@@ -35,7 +42,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: [["list"], ["html", { open: "never" }], ["@hapergg/harness-comet-playwright/reporter"]],
+  reporter: ${reporter},
   expect: {
     timeout: 10_000
   },
@@ -59,7 +66,14 @@ export default defineConfig({
 `;
 }
 
-export function playwrightExampleSpecTemplate(): string {
+export function playwrightExampleSpecTemplate(
+  options: { includeHarnessTag?: boolean } = {}
+): string {
+  const tagList = options.includeHarnessTag
+    ? `["@harness", "@annotation-save"]`
+    : `["@annotation-save"]`;
+  const origin = options.includeHarnessTag ? "http://harness.local" : "http://playwright.local";
+
   return `import { expect, test } from "@playwright/test";
 import input from "../data/example-input.json" with { type: "json" };
 import expectedPayload from "../data/example-expected-payload.json" with { type: "json" };
@@ -69,13 +83,13 @@ import { mockJson } from "../support/mock-api";
 test(
   "Example save flow",
   {
-    tag: ["@harness", "@annotation-save"]
+    tag: ${tagList}
   },
   async ({ page }, testInfo) => {
     const captured: unknown[] = [];
-    const origin = "http://harness.local";
+    const origin = "${origin}";
 
-    await page.route(\`\${origin}/\`, async (route) => {
+    await page.route(\`${origin}/\`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "text/html",
@@ -140,13 +154,13 @@ test(
       });
     });
 
-    await mockJson(page, \`\${origin}/api/bootstrap\`, {
+    await mockJson(page, \`${origin}/api/bootstrap\`, {
       featureFlags: {
         annotationSave: true
       }
     });
 
-    await page.route(\`\${origin}/api/annotations\`, async (route) => {
+    await page.route(\`${origin}/api/annotations\`, async (route) => {
       const request = route.request();
 
       captured.push(
@@ -202,7 +216,7 @@ test(
 }
 
 export function playwrightFixturesTemplate(): string {
-  return `export const harnessBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
+  return `export const testBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 `;
 }
 
@@ -263,15 +277,27 @@ Prefer one business behavior per Playwright test file. Keep the test focused on:
 `;
 }
 
-export function playwrightIncidentGuideTemplate(): string {
-  return `# Incident Guide
+export function playwrightIncidentGuideTemplate(
+  options: { includeHarnessComet?: boolean } = {}
+): string {
+  if (options.includeHarnessComet) {
+    return `# Incident Guide
 
 Use \`harness-comet create incident <id>\` to scaffold incident assets, then keep the spec and fixture files close to the incident metadata.
 `;
+  }
+
+  return `# Incident Guide
+
+Keep incident-focused Playwright tests close to their supporting data and reproduction notes.
+`;
 }
 
-export function playwrightAcceptanceCriteriaTemplate(): string {
-  return `# Acceptance Criteria
+export function playwrightAcceptanceCriteriaTemplate(
+  options: { includeHarnessComet?: boolean } = {}
+): string {
+  if (options.includeHarnessComet) {
+    return `# Acceptance Criteria
 
 Every Playwright Harness change should leave behind:
 
@@ -281,15 +307,37 @@ Every Playwright Harness change should leave behind:
 - a markdown verify report
 - a receipt that archive-check can validate
 `;
+  }
+
+  return `# Acceptance Criteria
+
+Every Playwright test change should leave behind:
+
+- clear target tests
+- deterministic fixtures
+- useful assertions
+- reproducible verification commands
+`;
 }
 
-export function testingReadmeTemplate(): string {
-  return `# Testing
+export function testingReadmeTemplate(options: { includeHarnessComet?: boolean } = {}): string {
+  if (options.includeHarnessComet) {
+    return `# Testing
 
 This project uses Playwright mode for Harness-Comet.
 
 Playwright owns test execution through \`playwright.config.ts\`.
 Harness-Comet owns business scenario metadata, Comet impact decisions, verification evidence, and archive checks.
+
+Keep tests focused on business behavior. Add helper files and directories only when the project needs them.
+`;
+  }
+
+  return `# Testing
+
+This project uses Playwright for browser tests.
+
+Playwright owns test execution through \`playwright.config.ts\`.
 
 Keep tests focused on business behavior. Add helper files and directories only when the project needs them.
 `;
