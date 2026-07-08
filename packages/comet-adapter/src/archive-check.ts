@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execa } from "execa";
+import { PlaywrightVerifyReceiptV2Schema } from "@hapergg/harness-comet-schema";
 import {
   discoverHarnessAssets,
   HarnessError,
@@ -14,15 +16,9 @@ import {
   readPlaywrightHarnessImpact,
   resolveChangeRoot
 } from "./change.js";
-import {
-  buildVerificationFingerprint,
-  buildVerificationFingerprintForMode,
-  buildVerificationReportPath,
-  readPlaywrightVerifyReceipt,
-  readVerifyReceipt
-} from "./verify.js";
+import { sha256 } from "./manifest.js";
 import { resolveHarnessCometProjectMode } from "./project-mode.js";
-import type { CometArchiveCheckReport } from "./types.js";
+import type { CometArchiveCheckReport, PlaywrightVerifyReceiptV2, VerifyReceiptV1 } from "./types.js";
 
 function resolveReceiptReportPath(projectRoot: string, reportPath: string): string {
   return path.isAbsolute(reportPath) ? reportPath : path.join(projectRoot, reportPath);
@@ -233,7 +229,7 @@ async function archiveCheckPlaywrightCometChange(
 
 function validatePlaywrightNoneArchiveReport(
   report: string,
-  receipt: Awaited<ReturnType<typeof readPlaywrightVerifyReceipt>>,
+  receipt: PlaywrightVerifyReceiptV2,
   change: string,
   reportPath: string
 ): void {
@@ -294,6 +290,119 @@ function validatePlaywrightNoneArchiveReport(
       path: reportPath
     });
   }
+}
+
+async function readVerifyReceipt(receiptPath: string): Promise<VerifyReceiptV1> {
+  try {
+    return JSON.parse(await fs.readFile(receiptPath, "utf8")) as VerifyReceiptV1;
+  } catch (error) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_RECEIPT_MISSING",
+      category: "config",
+      message: `Comet verify receipt missing or invalid: ${receiptPath}`,
+      path: receiptPath,
+      context: { cause: error instanceof Error ? error.message : String(error) }
+    });
+  }
+}
+
+async function readPlaywrightVerifyReceipt(receiptPath: string): Promise<PlaywrightVerifyReceiptV2> {
+  try {
+    return PlaywrightVerifyReceiptV2Schema.parse(JSON.parse(await fs.readFile(receiptPath, "utf8")));
+  } catch (error) {
+    throw new HarnessError({
+      code: "COMET_ARCHIVE_RECEIPT_MISSING",
+      category: "config",
+      message: `Comet Playwright verify receipt missing or invalid: ${receiptPath}`,
+      path: receiptPath,
+      context: { cause: error instanceof Error ? error.message : String(error) }
+    });
+  }
+}
+
+async function buildVerificationFingerprint(projectRoot: string): Promise<{
+  configHash: string;
+  assetHash: string;
+  gitTreeHash: string;
+}> {
+  const configPath = path.join(projectRoot, "harness-comet.config.ts");
+  const configHash = await hashFileOrMissing(configPath);
+  const assetHash = sha256(
+    JSON.stringify(
+      await Promise.all([
+        hashDirectory(path.join(projectRoot, "harness")),
+        hashDirectory(path.join(projectRoot, "docs", "testing"))
+      ])
+    )
+  );
+  return { configHash, assetHash, gitTreeHash: await gitTreeHash(projectRoot) };
+}
+
+async function buildVerificationFingerprintForMode(
+  projectRoot: string,
+  mode: "runtime" | "playwright"
+): Promise<{
+  configHash: string;
+  assetHash: string;
+  gitTreeHash: string;
+}> {
+  if (mode === "runtime") return buildVerificationFingerprint(projectRoot);
+  const configHash = await hashFileOrMissing(path.join(projectRoot, "harness-comet.config.ts"));
+  const assetHash = sha256(
+    JSON.stringify(
+      await Promise.all([
+        hashFileOrMissing(path.join(projectRoot, "playwright.config.ts")),
+        hashDirectory(path.join(projectRoot, "tests")),
+        hashDirectory(path.join(projectRoot, "docs", "testing"))
+      ])
+    )
+  );
+  return { configHash, assetHash, gitTreeHash: await gitTreeHash(projectRoot) };
+}
+
+async function hashFileOrMissing(filePath: string): Promise<string> {
+  try {
+    return sha256(await fs.readFile(filePath, "utf8"));
+  } catch {
+    return "missing";
+  }
+}
+
+async function hashDirectory(directory: string): Promise<Record<string, string>> {
+  const files = await collectFiles(directory);
+  const entries: Record<string, string> = {};
+  for (const file of files) {
+    entries[path.relative(directory, file)] = await hashFileOrMissing(file);
+  }
+  return entries;
+}
+
+async function collectFiles(directory: string): Promise<string[]> {
+  const entries: string[] = [];
+  try {
+    for (const dirent of await fs.readdir(directory, { withFileTypes: true })) {
+      const full = path.join(directory, dirent.name);
+      if (dirent.isDirectory()) entries.push(...(await collectFiles(full)));
+      else if (dirent.isFile()) entries.push(full);
+    }
+  } catch {
+    return [];
+  }
+  return entries.sort();
+}
+
+async function gitTreeHash(projectRoot: string): Promise<string> {
+  try {
+    const { stdout } = await execa("git", ["rev-parse", "HEAD^{tree}"], { cwd: projectRoot });
+    return stdout.trim();
+  } catch {
+    return "no-git-tree";
+  }
+}
+
+function buildVerificationReportPath(projectRoot: string, change: string): string {
+  const date = new Date().toISOString().slice(0, 10);
+  return path.join(projectRoot, "docs", "superpowers", "reports", `${date}-${change}-harness.md`);
 }
 
 async function projectHasHarnessAssets(projectRoot: string): Promise<boolean> {
