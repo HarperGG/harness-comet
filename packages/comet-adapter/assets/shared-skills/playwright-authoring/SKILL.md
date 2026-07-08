@@ -1,6 +1,6 @@
 ---
 name: playwright-authoring
-description: Explicitly invoked standalone workflow that turns a concrete requirement into project-consistent Playwright test assets using the required journeys/incidents/data/support asset model.
+description: Explicitly invoked standalone workflow that turns a concrete requirement into project-consistent Playwright test assets and places each asset in the correct journeys/incidents/data/support directory when that asset is needed.
 ---
 
 # Playwright Authoring
@@ -41,7 +41,7 @@ Do not create:
 - Comet phase state;
 - `.harness-comet/manifest.json` entries.
 
-## Required Playwright asset model
+## Playwright asset placement model
 
 Resolve the configured Playwright test directory before writing assets:
 
@@ -49,7 +49,7 @@ Resolve the configured Playwright test directory before writing assets:
 2. otherwise prefer `playwright.config.ts` `testDir` when it is statically clear;
 3. otherwise use `tests`.
 
-All test assets must follow this model under `<testDir>`:
+When an asset of a given type is needed, place it under the matching directory in `<testDir>`:
 
 ```text
 <testDir>/
@@ -59,13 +59,14 @@ All test assets must follow this model under `<testDir>`:
   support/     Mock, attachment, request capture, canvas, assertion, and helper utilities
 ```
 
+A requirement does not need to create all four kinds of assets. Create only the files needed to satisfy the requirement and keep each created or updated file in the correct location.
+
 ### Placement contract
 
 - Put long-lived core business journey specs under `<testDir>/journeys/`.
 - Put production incident regressions under `<testDir>/incidents/`.
 - Put fixed input JSON, expected payload JSON, captured API contracts, scenario data, and deterministic test data under `<testDir>/data/`.
 - Put mock helpers, attachment helpers, request capture helpers, canvas helpers, custom assertions, API test clients, selectors, factories, and reusable utilities under `<testDir>/support/`.
-- Do not create `<testDir>/fixtures.ts` unless the requirement explicitly asks for a Playwright `test.extend(...)` fixture module and the plan explains why `support/` is insufficient.
 - Do not place fixed case data in `support/`.
 - Do not place helper code in `data/`.
 - Do not place incident-only regressions in `journeys/` unless the requirement explicitly promotes the incident into a long-lived core journey.
@@ -173,7 +174,6 @@ Implementation rules:
 - Reuse existing fixtures, Page Objects, helpers, factories, data, selectors, and test extensions when appropriate.
 - Use deterministic data and controlled external dependencies.
 - Use Playwright auto-waiting and web-first assertions.
-- Every generated Harness test must include `@harness` and a behavior tag such as `@annotation-save` or `@incident-INC-1234`.
 - Preserve configured reporters and result paths.
 - Map each planned requirement branch to direct assertions.
 - Attach useful evidence for captured payloads, transformed data, screenshots, or diagnostics when applicable.
@@ -194,7 +194,6 @@ Also run relevant lint and type checks when available.
 Confirm:
 
 - every declared runnable target was listed and executed;
-- every created or updated Harness test contains `@harness`;
 - every planned requirement maps to an assertion;
 - the approved real route or execution boundary is used;
 - named production components, handlers, stores, serializers, or API clients are exercised;
@@ -202,8 +201,7 @@ Confirm:
 - fixtures and network controls are deterministic;
 - required evidence exists;
 - no undeclared test target was added;
-- all created or updated files comply with the asset placement contract;
-- `<testDir>/fixtures.ts` was not created unless explicitly justified.
+- all created or updated files comply with the asset placement contract.
 
 When execution is impossible, report `blocked`, include exact commands attempted, and keep the implemented assets scoped to the approved plan.
 
@@ -235,7 +233,7 @@ Report:
 
 - session document path;
 - created, updated, and retired files;
-- which files went under `journeys`, `incidents`, `data`, and `support`;
+- which files went under `journeys`, `incidents`, `data`, and `support` when applicable;
 - real route and production source paths exercised;
 - reused fixtures and support assets;
 - verification commands and outcomes;
