@@ -8,6 +8,7 @@ import {
 } from "./project-guidance-entries.js";
 import {
   playwrightAssetValidatorTemplate,
+  playwrightPolicyTemplate,
   rulesTemplate,
   structureTemplate,
   type GuidanceLanguage
@@ -49,6 +50,7 @@ export async function initializeProjectGuidance(
   await fs.mkdir(agentsRoot, { recursive: true });
   await writeIfMissing(path.join(agentsRoot, "rules.md"), rulesTemplate(language));
   await writeIfMissing(path.join(agentsRoot, "structure.md"), structureTemplate(language));
+  await writeIfMissing(path.join(agentsRoot, "playwright.md"), playwrightPolicyTemplate(language));
   await writeIfMissing(
     path.join(agentsRoot, "scripts", "validate-playwright-assets.mjs"),
     playwrightAssetValidatorTemplate(language)

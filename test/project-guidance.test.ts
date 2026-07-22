@@ -13,7 +13,7 @@ const targets = [
 ];
 
 describe("project guidance initialization", () => {
-  it("patches all supported agent entries idempotently without requiring skills", async () => {
+  it("patches all supported agent entries idempotently with the Playwright policy trigger", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "project-guidance-"));
     await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
 
@@ -24,7 +24,13 @@ describe("project guidance initialization", () => {
       const content = await readFile(path.join(root, target.entry), "utf8");
       expect(content).toContain(".agents/rules.md");
       expect(content).toContain(".agents/structure.md");
-      expect(content).toContain("validate-playwright-assets.mjs");
+      expect(content).toContain(".agents/playwright.md");
+      expect(content).toContain("playwright-authoring");
+      expect(content).toContain("`verify`");
+      expect(content).toContain("`update`");
+      expect(content).toContain("`create`");
+      expect(content).toContain("`none`");
+      expect(content).not.toContain("validate-playwright-assets.mjs");
       expect(content.match(/HARNESS-COMET:BEGIN project-context/g)).toHaveLength(1);
     }
     expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(
@@ -32,8 +38,19 @@ describe("project guidance initialization", () => {
     );
 
     const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
-    expect(rules).toContain("Playwright test asset rules");
-    expect(rules).toContain("node .agents/scripts/validate-playwright-assets.mjs");
+    expect(rules).toContain("Playwright testing");
+    expect(rules).toContain(".agents/playwright.md");
+    expect(rules).not.toContain("Do not create or move Playwright test assets casually");
+
+    const policy = await readFile(path.join(root, ".agents", "playwright.md"), "utf8");
+    expect(policy).toContain("Default testing obligation");
+    expect(policy).toContain("<testDir>/");
+    expect(policy).toContain("journeys/");
+    expect(policy).toContain("incidents/");
+    expect(policy).toContain("data/");
+    expect(policy).toContain("support/");
+    expect(policy).toContain("pnpm exec playwright test --list");
+    expect(policy).toContain("pnpm exec playwright test <target-test-file>");
 
     const validator = await readFile(
       path.join(root, ".agents", "scripts", "validate-playwright-assets.mjs"),
@@ -48,14 +65,15 @@ describe("project guidance initialization", () => {
     await initializeProjectGuidance(root, { agents: ["codex", "claude"] });
 
     expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("# Project Rules");
-    expect(await readFile(path.join(root, ".agents", "structure.md"), "utf8")).toContain("validate-playwright-assets.mjs");
+    expect(await readFile(path.join(root, ".agents", "structure.md"), "utf8")).toContain(".agents/playwright.md");
+    expect(await readFile(path.join(root, ".agents", "playwright.md"), "utf8")).toContain(
+      "# Playwright Testing Policy"
+    );
     expect(await readFile(path.join(root, ".agents", "scripts", "validate-playwright-assets.mjs"), "utf8")).toContain(
       "Playwright asset placement validation passed"
     );
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(".agents/rules.md");
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("validate-playwright-assets.mjs");
-    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain(".agents/rules.md");
-    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain("validate-playwright-assets.mjs");
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(".agents/playwright.md");
+    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain(".agents/playwright.md");
     await expect(stat(path.join(root, ".cursor", "rules", "harness-comet.mdc"))).rejects.toBeTruthy();
     await expect(stat(path.join(root, ".github", "copilot-instructions.md"))).rejects.toBeTruthy();
   });
@@ -76,12 +94,15 @@ describe("project guidance initialization", () => {
     await initializeProjectGuidance(root);
 
     expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("# 项目规则");
-    expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("Playwright 测试资产规则");
+    expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("Playwright 测试");
     expect(await readFile(path.join(root, ".agents", "structure.md"), "utf8")).toContain(
-      "# 项目结构"
+      ".agents/playwright.md"
+    );
+    expect(await readFile(path.join(root, ".agents", "playwright.md"), "utf8")).toContain(
+      "默认测试义务"
     );
     expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("项目上下文");
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("validate-playwright-assets.mjs");
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(".agents/playwright.md");
     expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain("项目上下文");
   });
 

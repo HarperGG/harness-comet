@@ -17,35 +17,57 @@ describe("standalone skill installer", () => {
     expect(result.stdout).toContain("playwright-authoring-decision");
   });
 
-  it("keeps playwright-authoring wired to planner, generator, healer, and the asset placement model", async () => {
+  it("keeps playwright-authoring policy-triggered and wired to planner, generator, and healer", async () => {
     const content = await readFile(
       path.resolve("packages/comet-adapter/assets/shared-skills/playwright-authoring/SKILL.md"),
       "utf8"
     );
 
+    expect(content).toContain("project instructions reference `.agents/playwright.md`");
+    expect(content).toContain("does not require the user to separately request or approve tests");
     expect(content).toContain("playwright-planner -> playwright-generator -> playwright-healer");
     expect(content).toContain("Invoke `playwright-planner`");
-    expect(content).toContain("Invoke `playwright-generator`");
-    expect(content).toContain("Invoke `playwright-healer`");
+    expect(content).toContain("invoke `playwright-generator`");
+    expect(content).toContain("invoke `playwright-healer`");
+    expect(content).toContain("every `update` and `create` target was written to the repository");
+    expect(content).toContain("every `verify`, `update`, and `create` target was discovered and executed");
     expect(content).toContain("<testDir>/journeys/");
     expect(content).toContain("<testDir>/incidents/");
     expect(content).toContain("<testDir>/data/");
     expect(content).toContain("<testDir>/support/");
-    expect(content).toContain("Create only the files needed to satisfy the requirement");
   });
 
-  it("keeps the stage skills aligned with the Playwright asset placement model", async () => {
-    for (const skill of ["playwright-planner", "playwright-generator", "playwright-healer"]) {
-      const content = await readFile(
-        path.resolve(`packages/comet-adapter/assets/shared-skills/${skill}/SKILL.md`),
-        "utf8"
-      );
+  it("keeps the stage skills aligned with mandatory test generation and native verification", async () => {
+    const planner = await readFile(
+      path.resolve("packages/comet-adapter/assets/shared-skills/playwright-planner/SKILL.md"),
+      "utf8"
+    );
+    expect(planner).toContain("verify | update | create | none");
+    expect(planner).toContain("Feature work and bug fixes default to `update` or `create`");
+    expect(planner).toContain("<testDir>/journeys/");
+    expect(planner).toContain("<testDir>/incidents/");
+    expect(planner).toContain("<testDir>/data/");
+    expect(planner).toContain("<testDir>/support/");
 
-      expect(content).toContain("<testDir>/journeys/");
-      expect(content).toContain("<testDir>/incidents/");
-      expect(content).toContain("<testDir>/data/");
-      expect(content).toContain("<testDir>/support/");
-    }
+    const generator = await readFile(
+      path.resolve("packages/comet-adapter/assets/shared-skills/playwright-generator/SKILL.md"),
+      "utf8"
+    );
+    expect(generator).toContain("Write the actual repository files");
+    expect(generator).toContain("Do not report generation complete when a required file was only described but not written");
+    expect(generator).toContain("<testDir>/journeys/");
+    expect(generator).toContain("<testDir>/incidents/");
+    expect(generator).toContain("<testDir>/data/");
+    expect(generator).toContain("<testDir>/support/");
+
+    const healer = await readFile(
+      path.resolve("packages/comet-adapter/assets/shared-skills/playwright-healer/SKILL.md"),
+      "utf8"
+    );
+    expect(healer).toContain("pnpm exec playwright test --list");
+    expect(healer).toContain("pnpm exec playwright test <target-test-file>");
+    expect(healer).toContain("every `verify`, `update`, and `create` target is executed");
+    expect(healer).toContain("Do not report success unless every required target was discovered, executed, and passed");
   });
 
   it("installs one skill into detected Codex, Claude, Cursor, and Copilot projects", async () => {
@@ -107,7 +129,6 @@ describe("standalone skill installer", () => {
       ],
       { reject: false }
     );
-
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain("codex, claude, cursor, and github-copilot");
   });
