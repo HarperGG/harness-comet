@@ -484,9 +484,9 @@ for (const absolutePath of files) {
 }
 
 if (errors.length > 0) {
-  console.error("Playwright asset placement validation failed:\n");
+  console.error("Playwright asset placement validation failed:\\n");
   for (const error of errors) console.error(\`- \${error}\`);
-  console.error("\nUse playwright-authoring, or move each asset to the correct test asset directory.");
+  console.error("\\nUse playwright-authoring, or move each asset to the correct test asset directory.");
   process.exit(1);
 }
 
@@ -512,7 +512,7 @@ async function resolvePlaywrightTestDir(projectRoot) {
 
 function extractTestDir(content) {
   if (!content) return undefined;
-  const match = content.match(/testDir\s*:\s*["']([^"']+)["']/);
+  const match = content.match(/testDir\\s*:\\s*["']([^"']+)["']/);
   return match?.[1];
 }
 
@@ -562,15 +562,15 @@ function shouldIgnore(filePath) {
 }
 
 function isPlaywrightSpec(filePath) {
-  return /(^|\/)[^/]+\.(spec|test)\.[cm]?[jt]sx?$/.test(filePath);
+  return /(^|\\/)[^/]+\\.(spec|test)\\.[cm]?[jt]sx?$/.test(filePath);
 }
 
 function isJsonData(filePath) {
-  return /\.json$/i.test(filePath);
+  return /\\.json$/i.test(filePath);
 }
 
 function isCodeFile(filePath) {
-  return /\.[cm]?[jt]sx?$/.test(filePath);
+  return /\\.[cm]?[jt]sx?$/.test(filePath);
 }
 
 function isLikelyPlaywrightAsset(filePath) {
