@@ -13,7 +13,7 @@ const targets = [
 ];
 
 describe("project guidance initialization", () => {
-  it("patches all supported agent entries idempotently with on-demand Playwright guidance", async () => {
+  it("patches all supported agent entries idempotently with conditional Playwright recommendations", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "project-guidance-"));
     await writeFile(path.join(root, "AGENTS.md"), "# Existing instructions\n", "utf8");
 
@@ -31,6 +31,10 @@ describe("project guidance initialization", () => {
       expect(content).toContain("`create`");
       expect(content).toContain("`none`");
       expect(content).toContain("on demand");
+      expect(content).toContain("MUST perform one lightweight Playwright regression recommendation check");
+      expect(content).toContain("MUST include exactly one short, non-blocking recommendation");
+      expect(content).toContain("If regression coverage is not recommended, do not mention Playwright");
+      expect(content).not.toContain("may mention once");
       expect(content).not.toContain("must use that workflow for required Playwright work");
       expect(content).not.toContain("validate-playwright-assets.mjs");
       expect(content.match(/HARNESS-COMET:BEGIN project-context/g)).toHaveLength(1);
@@ -45,12 +49,21 @@ describe("project guidance initialization", () => {
     const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
     expect(rules).toContain("Playwright testing");
     expect(rules).toContain("authored on demand");
+    expect(rules).toContain("MUST perform one lightweight regression recommendation check");
+    expect(rules).toContain("MUST include one short, non-blocking `playwright-authoring` recommendation");
+    expect(rules).toContain("If browser regression coverage is not warranted, do not mention Playwright");
+    expect(rules).not.toContain("may mention once");
     expect(rules).toContain("HARNESS-COMET:BEGIN playwright-guidance");
     expect(rules).toContain(".agents/playwright.md");
 
     const policy = await readFile(path.join(root, ".agents", "playwright.md"), "utf8");
     expect(policy).toContain("Activation policy");
     expect(policy).toContain("Playwright authoring is on demand");
+    expect(policy).toContain("Regression coverage recommendation");
+    expect(policy).toContain("MUST perform one lightweight regression recommendation check");
+    expect(policy).toContain("MUST include one short, non-blocking `playwright-authoring` recommendation");
+    expect(policy).toContain("If regression coverage is not recommended, do not mention Playwright");
+    expect(policy).not.toContain("may mention once");
     expect(policy).toContain("HARNESS-COMET:BEGIN playwright-activation");
     expect(policy).toContain("<testDir>/");
     expect(policy).toContain("journeys/");
@@ -92,12 +105,14 @@ describe("project guidance initialization", () => {
     const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
     expect(rules).toContain("HARNESS-COMET:BEGIN playwright-guidance");
     expect(rules).toContain("authored on demand");
+    expect(rules).toContain("MUST perform one lightweight regression recommendation check");
     expect(rules).toContain("Keep this user-authored note.");
     expect(rules).not.toContain("When work changes user-visible behavior, implements a feature");
 
     const policy = await readFile(path.join(root, ".agents", "playwright.md"), "utf8");
     expect(policy).toContain("HARNESS-COMET:BEGIN playwright-activation");
     expect(policy).toContain("Playwright authoring is on demand");
+    expect(policy).toContain("Regression coverage recommendation");
     expect(policy).toContain("## Test actions");
     expect(policy).toContain("Preserve this custom addition.");
     expect(policy).not.toContain("Playwright coverage is part of the default delivery");
@@ -107,6 +122,7 @@ describe("project guidance initialization", () => {
     expect(entry).toContain("# User instructions");
     expect(entry).toContain("## Custom\nKeep me.");
     expect(entry).toContain("Playwright authoring is on demand");
+    expect(entry).toContain("MUST perform one lightweight Playwright regression recommendation check");
     expect(entry.match(/HARNESS-COMET:BEGIN project-context/g)).toHaveLength(1);
   });
 
@@ -136,8 +152,8 @@ describe("project guidance initialization", () => {
     expect(await readFile(path.join(root, ".agents", "playwright.md"), "utf8")).toContain(
       "# Playwright Testing Policy"
     );
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(".agents/playwright.md");
-    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain(".agents/playwright.md");
+    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("Playwright regression recommendation");
+    expect(await readFile(path.join(root, "CLAUDE.md"), "utf8")).toContain("Playwright regression recommendation");
     await expect(stat(path.join(root, ".cursor", "rules", "harness-comet.mdc"))).rejects.toBeTruthy();
     await expect(stat(path.join(root, ".github", "copilot-instructions.md"))).rejects.toBeTruthy();
   });
@@ -161,10 +177,20 @@ describe("project guidance initialization", () => {
 
     await initializeProjectGuidance(root, { agents: ["codex"] });
 
-    expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("# 项目规则");
-    expect(await readFile(path.join(root, ".agents", "rules.md"), "utf8")).toContain("按需生成");
-    expect(await readFile(path.join(root, ".agents", "playwright.md"), "utf8")).toContain("Playwright authoring 按需启用");
-    expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("项目上下文");
+    const rules = await readFile(path.join(root, ".agents", "rules.md"), "utf8");
+    expect(rules).toContain("# 项目规则");
+    expect(rules).toContain("按需生成");
+    expect(rules).toContain("必须基于本次已经掌握的实现上下文做一次轻量级回归覆盖建议判断");
+
+    const policy = await readFile(path.join(root, ".agents", "playwright.md"), "utf8");
+    expect(policy).toContain("Playwright authoring 按需启用");
+    expect(policy).toContain("## 回归覆盖建议");
+    expect(policy).toContain("必须做一次轻量级回归覆盖建议判断");
+
+    const entry = await readFile(path.join(root, "AGENTS.md"), "utf8");
+    expect(entry).toContain("项目上下文");
+    expect(entry).toContain("### Playwright 回归覆盖建议");
+    expect(entry).toContain("最终回复中必须且只能给出一次简短、非阻塞的建议");
   });
 
   it("validates Playwright asset placement for generated tests", async () => {
