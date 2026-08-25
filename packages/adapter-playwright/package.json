@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-adapter-playwright",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Playwright-backed Harness Comet runtime adapter.",
   "license": "MIT",
   "type": "module",
