@@ -1,0 +1,249 @@
+import type { GuidanceLanguage } from "./project-guidance-templates.js";
+
+export const RULES_PLAYWRIGHT_START = "<!-- HARNESS-COMET:BEGIN playwright-guidance -->";
+export const RULES_PLAYWRIGHT_END = "<!-- HARNESS-COMET:END playwright-guidance -->";
+export const PLAYWRIGHT_ACTIVATION_START = "<!-- HARNESS-COMET:BEGIN playwright-activation -->";
+export const PLAYWRIGHT_ACTIVATION_END = "<!-- HARNESS-COMET:END playwright-activation -->";
+
+export function playwrightRulesBlock(language: GuidanceLanguage): string {
+  const body = language === "zh"
+    ? [
+        "### Playwright 测试",
+        "",
+        "Playwright 测试资产在日常研发中按需生成，不是功能实现、Bug 修复或重构的默认阻塞项。",
+        "",
+        "普通研发任务不应仅因为代码发生变化就自动分析已有 Playwright 覆盖、选择 `verify` / `update` / `create` / `none`、生成测试资产或执行 Playwright。",
+        "",
+        "当改动涉及用户可感知行为且用户没有要求 Playwright 工作时，可以在完成时最多提醒一次：如有需要，可使用 `playwright-authoring` 补充回归资产。该提醒不得阻塞当前任务完成。",
+        "",
+        "只有当用户明确要求 Playwright、E2E、浏览器或回归测试工作，要求分析 Playwright 覆盖，或显式调用 Playwright skill 时，才读取并遵循 `.agents/playwright.md`。"
+      ]
+    : [
+        "### Playwright testing",
+        "",
+        "Playwright test assets are authored on demand during normal development. They are not a default blocking requirement for feature work, bug fixes, or refactors.",
+        "",
+        "Normal implementation work must not inspect existing Playwright coverage, select `verify` / `update` / `create` / `none`, generate test assets, or execute Playwright solely because code changed.",
+        "",
+        "When a completed change affects user-visible behavior and the user did not request Playwright work, the agent may mention once that regression coverage can be added with `playwright-authoring`. This reminder must not block completion.",
+        "",
+        "Read and follow `.agents/playwright.md` only when the user explicitly requests Playwright, E2E, browser, or regression-test work, asks for Playwright coverage analysis, or explicitly invokes a Playwright skill."
+      ];
+  return [RULES_PLAYWRIGHT_START, "", ...body, "", RULES_PLAYWRIGHT_END].join("\n");
+}
+
+export function rulesTemplate(language: GuidanceLanguage): string {
+  const prefix = language === "zh"
+    ? [
+        "# 项目规则",
+        "",
+        "本文件记录用户明确提出并确认的项目级长期规则。",
+        "",
+        "## 红线",
+        "",
+        "当前暂无已确认红线。",
+        "",
+        "## 工程准则"
+      ]
+    : [
+        "# Project Rules",
+        "",
+        "This file records long-lived project rules explicitly stated and confirmed by the user.",
+        "",
+        "## Red Lines",
+        "",
+        "No confirmed red lines yet.",
+        "",
+        "## Engineering Guidelines"
+      ];
+  return [...prefix, "", playwrightRulesBlock(language), ""].join("\n");
+}
+
+export function playwrightActivationBlock(language: GuidanceLanguage): string {
+  const body = language === "zh"
+    ? [
+        "## 启用策略",
+        "",
+        "Playwright authoring 按需启用。普通功能实现、Bug 修复、重构和用户可感知行为修改，不会自动触发 Playwright 覆盖分析、测试资产生成或测试执行。",
+        "",
+        "不得仅因为 `.agents/playwright.md` 存在、项目安装了 Playwright skill，或当前任务修改了业务代码，就自动启动 Playwright 工作流。",
+        "",
+        "## 显式触发条件",
+        "",
+        "只有当用户明确执行以下任一动作时才启动 Playwright 工作：",
+        "",
+        "- 要求 Playwright、E2E、浏览器或回归测试覆盖；",
+        "- 要求创建、更新、修复、执行或验证 Playwright 测试；",
+        "- 要求分析现有 Playwright coverage 或测试影响；",
+        "- 显式调用 `playwright-impact-analysis` 或 `playwright-authoring`。",
+        "",
+        "普通的“实现功能”“修复 Bug”“调整交互”请求本身不构成 Playwright authoring 授权。",
+        "",
+        "## 非阻塞提醒",
+        "",
+        "如果已完成的改动影响用户可感知行为，而用户没有要求 Playwright 工作，可以在最终回复中最多提醒一次：可使用 `playwright-authoring` 补充 Playwright 回归资产。不要在实现过程中反复询问，也不要因此阻塞完成。",
+        "",
+        "以下所有测试动作、资产生成和原生 Playwright 验证要求，仅在 Playwright 工作被上述条件显式触发后适用。"
+      ]
+    : [
+        "## Activation policy",
+        "",
+        "Playwright authoring is on demand. Normal feature implementation, bug fixes, refactors, and user-visible behavior changes do not automatically trigger Playwright coverage analysis, asset generation, or test execution.",
+        "",
+        "Do not start Playwright work merely because `.agents/playwright.md` exists, Playwright skills are installed, or production code changed.",
+        "",
+        "## Explicit activation",
+        "",
+        "Activate Playwright work only when the user explicitly:",
+        "",
+        "- requests Playwright, E2E, browser, or regression-test coverage;",
+        "- asks to create, update, repair, execute, or verify Playwright tests;",
+        "- asks for Playwright coverage or impact analysis;",
+        "- invokes `playwright-impact-analysis` or `playwright-authoring`.",
+        "",
+        "A normal request to implement a feature, fix a bug, or change an interaction is not Playwright authoring authorization by itself.",
+        "",
+        "## Non-blocking reminder",
+        "",
+        "When a completed change affects user-visible behavior and the user did not request Playwright work, the agent may mention once in the final response that Playwright regression assets can be added with `playwright-authoring`. Do not repeatedly ask during implementation and do not block completion.",
+        "",
+        "All test actions, asset-generation rules, and native Playwright verification requirements below apply only after Playwright work has been explicitly activated."
+      ];
+  return [PLAYWRIGHT_ACTIVATION_START, "", ...body, "", PLAYWRIGHT_ACTIVATION_END].join("\n");
+}
+
+export function playwrightPolicyTemplate(language: GuidanceLanguage): string {
+  if (language === "zh") {
+    return [
+      "# Playwright 测试规则",
+      "",
+      "## 规则优先级",
+      "",
+      "本文件定义显式 Playwright 工作的专项规则。它不是日常研发任务的自动触发器。",
+      "",
+      playwrightActivationBlock(language),
+      "",
+      "## 测试动作",
+      "",
+      "Playwright 工作被显式触发后，先检查真实项目边界和已有覆盖，再选择一个动作：",
+      "",
+      "- `verify`：已有测试直接证明目标行为，读取并执行该测试；",
+      "- `update`：已有测试覆盖相关流程，但缺少本次行为、分支、输入或断言；",
+      "- `create`：没有已有测试能够直接证明目标行为；",
+      "- `none`：显式 Playwright 请求经分析后确实没有浏览器可观察行为，或用户明确要求不创建/执行测试。",
+      "",
+      "不要仅根据文件名、测试名称或关键词相似认定已有覆盖。",
+      "",
+      "## 编写前检查",
+      "",
+      "仅在 Playwright 工作已启用时，按需要读取 `package.json`、`playwright.config.*`、配置的 `testDir` / `testMatch`、相关路由和生产源码、已有 spec、fixture、Page Object、selector、factory、helper 和测试数据。按业务行为和依赖关系查找覆盖，不要无差别扫描仓库。",
+      "",
+      "## 测试资产模型",
+      "",
+      "```text",
+      "<testDir>/",
+      "  journeys/     长期核心业务链路",
+      "  incidents/    Bug、线上问题和事故回归",
+      "  data/         固定输入、期望输出和确定性 JSON",
+      "  support/      fixture、mock、selector、assertion、factory 和 helper",
+      "```",
+      "",
+      "只创建当前需求实际需要的资产。spec 不直接放在 testDir 根级；固定数据放 `data/`；可复用代码放 `support/`。",
+      "",
+      "## 测试生成要求",
+      "",
+      "- 测试真实应用入口和用户可感知业务结果；",
+      "- 优先复用已有 fixture、Page Object、helper、factory、selector 和数据；",
+      "- 使用 Playwright locator、自动等待和 web-first assertion；",
+      "- 每个目标行为必须有直接断言；",
+      "- 使用确定性数据并控制外部依赖；",
+      "- 不得用生成 HTML 或测试专用页面替代真实产品；",
+      "- 不得 mock 正在被测试的业务能力本身；",
+      "- 不得删除、弱化或扩大断言来伪造通过。",
+      "",
+      "Bug 回归被显式要求时，优先复现问题，再修复生产代码并永久保留正确的回归测试。Bug 专属回归默认放在 `incidents/`。",
+      "",
+      "## 原生 Playwright 验证",
+      "",
+      "对每个 `verify`、`update` 或 `create` 目标执行项目包管理器对应的原生命令，例如：",
+      "",
+      "```bash",
+      "pnpm exec playwright test --list",
+      "pnpm exec playwright test <target-test-file>",
+      "```",
+      "",
+      "新增测试必须确认被 `--list` 发现。共享 fixture、Page Object、selector、factory 或 support helper 改动时，运行所有直接受影响的 spec。build、typecheck、lint 和 unit test 不能替代目标 Playwright 执行。",
+      "",
+      "## 失败与完成",
+      "",
+      "测试实现错误时做最小安全修复并重跑；正确测试暴露产品缺陷时报告产品缺陷，不要修改期望掩盖问题；环境阻塞时报告具体阻塞。只有显式 Playwright 任务中的必要目标都被发现、执行并通过后，才能报告该 Playwright 工作完成。",
+      ""
+    ].join("\n");
+  }
+
+  return [
+    "# Playwright Testing Policy",
+    "",
+    "## Rule precedence",
+    "",
+    "This file defines the rules for explicitly activated Playwright work. It is not an automatic trigger for normal implementation tasks.",
+    "",
+    playwrightActivationBlock(language),
+    "",
+    "## Test actions",
+    "",
+    "After Playwright work is explicitly activated, inspect the real application boundary and plausible existing coverage, then select one action:",
+    "",
+    "- `verify`: an existing test directly proves the target behavior; read and execute it;",
+    "- `update`: related coverage exists but lacks the required behavior, branch, input, or assertion;",
+    "- `create`: no existing test directly proves the target behavior;",
+    "- `none`: the explicit Playwright request has no browser-observable behavior after inspection, or the user explicitly asks not to create or execute tests.",
+    "",
+    "Do not infer direct coverage from filenames, test titles, or keyword similarity alone.",
+    "",
+    "## Required inspection",
+    "",
+    "Only after Playwright work is activated, read as needed: `package.json`, `playwright.config.*`, configured `testDir` / `testMatch`, relevant routes and production sources, plausible specs, fixtures, Page Objects, selectors, factories, helpers, and test data. Search by business behavior and dependency relationship instead of scanning the repository indiscriminately.",
+    "",
+    "## Test asset model",
+    "",
+    "```text",
+    "<testDir>/",
+    "  journeys/     Long-lived core business journeys",
+    "  incidents/    Bug, production issue, and incident regressions",
+    "  data/         Fixed input, expected output, and deterministic JSON",
+    "  support/      Fixtures, mocks, selectors, assertions, factories, and helpers",
+    "```",
+    "",
+    "Create only the assets required by the current request. Specs do not live directly under the testDir root; fixed data belongs in `data/`; reusable code belongs in `support/`.",
+    "",
+    "## Test generation requirements",
+    "",
+    "- exercise the real application entry and user-visible business outcome;",
+    "- reuse existing fixtures, Page Objects, helpers, factories, selectors, and data;",
+    "- use Playwright locators, auto-waiting, and web-first assertions;",
+    "- map every target behavior to a direct assertion;",
+    "- use deterministic data and controlled external dependencies;",
+    "- do not replace the product with generated HTML or a test-only page;",
+    "- do not mock the business capability being tested;",
+    "- do not delete, weaken, or broaden assertions just to obtain a pass.",
+    "",
+    "When bug regression coverage is explicitly requested, prefer reproducing the issue before changing production code, then keep the correct regression permanently. Bug-specific regressions normally belong in `incidents/`.",
+    "",
+    "## Native Playwright verification",
+    "",
+    "Execute each `verify`, `update`, or `create` target with the project's package manager, for example:",
+    "",
+    "```bash",
+    "pnpm exec playwright test --list",
+    "pnpm exec playwright test <target-test-file>",
+    "```",
+    "",
+    "For new tests, confirm discovery in `--list`. When a shared fixture, Page Object, selector, factory, or support helper changes, run every directly affected spec. Build, type checking, lint, and unit tests do not replace target Playwright execution.",
+    "",
+    "## Failure and completion",
+    "",
+    "Repair test implementation defects with the smallest safe change and rerun. Report product defects instead of changing correct expectations. Report exact environment blockers. An explicitly activated Playwright task is complete only when every required target is discovered, executed, and passing.",
+    ""
+  ].join("\n");
+}
