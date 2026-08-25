@@ -1,6 +1,6 @@
 {
   "name": "@hapergg/harness-comet-playwright",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Playwright helpers and reporters for Harness Comet projects.",
   "license": "MIT",
   "type": "module",

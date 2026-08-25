@@ -1,5 +1,17 @@
 # @hapergg/harness-comet-cli
 
+## 0.4.1
+
+### Patch Changes
+
+- update
+- Updated dependencies
+  - @hapergg/harness-comet-adapter-memory@0.4.1
+  - @hapergg/harness-comet-adapter-playwright@0.4.1
+  - @hapergg/harness-comet-comet-adapter@0.4.1
+  - @hapergg/harness-comet-core@0.4.1
+  - @hapergg/harness-comet-schema@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
