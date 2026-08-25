@@ -1,5 +1,17 @@
 # @hapergg/harness-comet-schema
 
+## 0.4.0
+
+### Minor Changes
+
+- update
+
+## 0.3.0
+
+### Minor Changes
+
+- update
+
 ## 0.2.16
 
 ### Patch Changes

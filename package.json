@@ -13,14 +13,16 @@
     "harness-comet": "node packages/cli/bin/harness-comet.js",
     "sync:comet-skills": "node scripts/run-comet-skill-sync.mjs && node scripts/patch-comet-archive-knowledge.mjs",
     "setup:browsers": "pnpm --filter @hapergg/harness-comet-adapter-playwright exec playwright install chromium",
-    "release:check": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm lint",
     "pack:all": "node scripts/pack-all.mjs",
     "pack:dry-run": "pnpm pack:all",
     "test:consumer": "node scripts/test-packed-consumer.mjs",
     "changeset": "changeset && changeset version",
     "version-packages": "changeset version",
     "publish": "pnpm changeset publish",
-    "release": "pnpm release:check && pnpm pack:all && pnpm test:consumer && changeset publish"
+    "release": "pnpm release:check && pnpm pack:all && pnpm test:consumer && changeset publish",
+    "release:check": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm lint",
+    "release:check:no-test": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm lint",
+    "release:no-test": "pnpm release:check:no-test && pnpm pack:all && pnpm test:consumer && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",

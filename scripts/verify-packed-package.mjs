@@ -11,8 +11,14 @@ const NPM_REGISTRY = "https://registry.npmjs.org/";
 export async function verifyPackedPackage(tarballPath) {
   const absoluteTarball = path.resolve(tarballPath);
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-comet-pack-"));
+
   try {
-    await execa("tar", ["-xzf", absoluteTarball, "-C", tempDir]);
+    const localTarballName = "package.tgz";
+    await fs.copyFile(absoluteTarball, path.join(tempDir, localTarballName));
+
+    await execa("tar", ["-xzf", localTarballName], {
+      cwd: tempDir
+    });
     const packageRoot = path.join(tempDir, "package");
     const manifestPath = path.join(packageRoot, "package.json");
     const manifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
@@ -42,9 +48,24 @@ export async function verifyPackedPackage(tarballPath) {
 
     if (manifest.name === "@hapergg/harness-comet-cli") {
       const binPath = manifest.bin?.["harness-comet"];
+
       assert(binPath === "./bin/harness-comet.js", `${manifest.name}: bin path is invalid`);
+
       const stat = await assertFile(packageRoot, binPath, `${manifest.name}: bin`);
-      assert((stat.mode & 0o111) !== 0, `${manifest.name}: bin is not executable`);
+
+      const binContent = await fs.readFile(
+        path.join(packageRoot, binPath.replace(/^\.\//, "")),
+        "utf8"
+      );
+
+      assert(
+        binContent.startsWith("#!/usr/bin/env node"),
+        `${manifest.name}: bin is missing node shebang`
+      );
+
+      if (process.platform !== "win32") {
+        assert((stat.mode & 0o111) !== 0, `${manifest.name}: bin is not executable`);
+      }
     }
 
     return manifest;

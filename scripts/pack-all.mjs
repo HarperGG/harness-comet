@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { execa } from "execa";
 import { verifyPackedPackage } from "./verify-packed-package.mjs";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const artifactDir = path.join(root, "artifacts", "npm");
 
 const packageOrder = [

@@ -3,8 +3,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { execa } from "execa";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(new URL("..", import.meta.url).pathname);
+const root = fileURLToPath(new URL("..", import.meta.url));
 const artifactDir = path.join(root, "artifacts", "npm");
 
 await ensureTarballs();
@@ -127,7 +128,16 @@ async function run(command, args, cwd) {
 }
 
 async function readPackedManifest(tarball) {
-  const { stdout } = await execa("tar", ["-xOf", tarball, "package/package.json"]);
+  const absoluteTarball = path.resolve(tarball);
+
+  const { stdout } = await execa(
+    "tar",
+    ["-xOf", path.basename(absoluteTarball), "package/package.json"],
+    {
+      cwd: path.dirname(absoluteTarball)
+    }
+  );
+
   return JSON.parse(stdout);
 }
 
