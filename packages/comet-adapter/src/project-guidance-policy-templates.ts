@@ -14,7 +14,9 @@ export function playwrightRulesBlock(language: GuidanceLanguage): string {
         "",
         "普通研发任务不应仅因为代码发生变化就自动分析已有 Playwright 覆盖、选择 `verify` / `update` / `create` / `none`、生成测试资产或执行 Playwright。",
         "",
-        "当改动涉及用户可感知行为且用户没有要求 Playwright 工作时，可以在完成时最多提醒一次：如有需要，可使用 `playwright-authoring` 补充回归资产。该提醒不得阻塞当前任务完成。",
+        "完成新功能、Bug 修复或行为变更后，必须基于本次已经掌握的实现上下文做一次轻量级回归覆盖建议判断。这个判断不得为了寻找覆盖而额外扫描 Playwright 测试，也不得读取 `.agents/playwright.md` 或选择 `verify` / `update` / `create` / `none`。",
+        "",
+        "如果改动具有明确的浏览器可观察结果并且值得防止未来回归，最终回复必须给出一次简短、非阻塞的 `playwright-authoring` 建议，并说明值得保护的具体行为；如果不值得补浏览器回归覆盖，则不要提 Playwright。用户明确同意之前不得自动 author。",
         "",
         "只有当用户明确要求 Playwright、E2E、浏览器或回归测试工作，要求分析 Playwright 覆盖，或显式调用 Playwright skill 时，才读取并遵循 `.agents/playwright.md`。"
       ]
@@ -25,7 +27,9 @@ export function playwrightRulesBlock(language: GuidanceLanguage): string {
         "",
         "Normal implementation work must not inspect existing Playwright coverage, select `verify` / `update` / `create` / `none`, generate test assets, or execute Playwright solely because code changed.",
         "",
-        "When a completed change affects user-visible behavior and the user did not request Playwright work, the agent may mention once that regression coverage can be added with `playwright-authoring`. This reminder must not block completion.",
+        "After completing a feature, bug fix, or behavior-changing implementation, the agent MUST perform one lightweight regression recommendation check using only implementation context already available. This check must not scan Playwright tests for coverage, read `.agents/playwright.md`, or select `verify` / `update` / `create` / `none`.",
+        "",
+        "If the change has meaningful browser-observable behavior worth protecting against regression, the final response MUST include one short, non-blocking `playwright-authoring` recommendation naming the concrete behavior to protect. If browser regression coverage is not warranted, do not mention Playwright. Do not author tests until the user explicitly accepts.",
         "",
         "Read and follow `.agents/playwright.md` only when the user explicitly requests Playwright, E2E, browser, or regression-test work, asks for Playwright coverage analysis, or explicitly invokes a Playwright skill."
       ];
@@ -79,11 +83,15 @@ export function playwrightActivationBlock(language: GuidanceLanguage): string {
         "",
         "普通的“实现功能”“修复 Bug”“调整交互”请求本身不构成 Playwright authoring 授权。",
         "",
-        "## 非阻塞提醒",
+        "## 回归覆盖建议",
         "",
-        "如果已完成的改动影响用户可感知行为，而用户没有要求 Playwright 工作，可以在最终回复中最多提醒一次：可使用 `playwright-authoring` 补充 Playwright 回归资产。不要在实现过程中反复询问，也不要因此阻塞完成。",
+        "完成新功能、Bug 修复或行为变更后，如果用户尚未要求 Playwright 工作，必须做一次轻量级回归覆盖建议判断。只使用本次需求或 Bug 描述、实现过程中已经读取的生产代码以及实际发生变化的行为；不得为了这个判断去搜索已有 Playwright 测试，不得选择 `verify` / `update` / `create` / `none`。",
         "",
-        "以下所有测试动作、资产生成和原生 Playwright 验证要求，仅在 Playwright 工作被上述条件显式触发后适用。"
+        "当改动具有明确浏览器可观察结果并且值得防止未来回归时，最终回复必须给出一次简短、非阻塞的 `playwright-authoring` 建议，并说明应保护的具体行为。纯文档、注释、格式化、不改变行为的重构、构建或工具链修改，以及没有明确浏览器可观察结果的内部修改，不应建议 Playwright 覆盖。",
+        "",
+        "用户明确同意或主动要求 Playwright 工作之前，不得自动调用 `playwright-authoring`。如果判断不需要回归覆盖，则最终回复不要提及 Playwright。",
+        "",
+        "以下所有测试动作、资产生成和原生 Playwright 验证要求，仅在 Playwright 工作被上述显式触发条件启用后适用。"
       ]
     : [
         "## Activation policy",
@@ -103,9 +111,13 @@ export function playwrightActivationBlock(language: GuidanceLanguage): string {
         "",
         "A normal request to implement a feature, fix a bug, or change an interaction is not Playwright authoring authorization by itself.",
         "",
-        "## Non-blocking reminder",
+        "## Regression coverage recommendation",
         "",
-        "When a completed change affects user-visible behavior and the user did not request Playwright work, the agent may mention once in the final response that Playwright regression assets can be added with `playwright-authoring`. Do not repeatedly ask during implementation and do not block completion.",
+        "After completing a feature, bug fix, or behavior-changing implementation, when the user has not already requested Playwright work, the agent MUST perform one lightweight regression recommendation check. Use only the requirement or bug description, production code already inspected during implementation, and the behavior that changed; do not search existing Playwright tests for this check and do not select `verify` / `update` / `create` / `none`.",
+        "",
+        "When the change has meaningful browser-observable behavior worth protecting against future regression, the final response MUST include one short, non-blocking `playwright-authoring` recommendation naming the concrete behavior to protect. Do not recommend Playwright for documentation, comments, formatting, non-behavioral refactors, build/tooling-only changes, or internal changes without meaningful browser-observable behavior.",
+        "",
+        "Do not invoke `playwright-authoring` until the user explicitly accepts or requests Playwright work. If regression coverage is not recommended, do not mention Playwright in the final response.",
         "",
         "All test actions, asset-generation rules, and native Playwright verification requirements below apply only after Playwright work has been explicitly activated."
       ];
