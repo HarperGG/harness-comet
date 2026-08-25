@@ -1,25 +1,27 @@
 ---
 name: playwright-planner
-description: Plan Playwright test assets from a concrete requirement by inspecting the real application boundary and selecting verify, update, create, or none under the journeys/incidents/data/support model.
+description: Plan Playwright test assets from an explicitly requested concrete requirement by inspecting the real application boundary and selecting verify, update, create, or none under the journeys/incidents/data/support model.
 ---
 
 # Playwright Planner
 
 ## Activation contract
 
-Use this skill when the user asks to plan Playwright coverage or when `playwright-authoring` delegates planning.
+Use this skill when the user explicitly asks to plan Playwright coverage or when an explicitly activated `playwright-authoring` workflow delegates planning.
 
 This skill is planning-only. Do not create, update, delete, or retire test assets.
 
+The presence of `.agents/playwright.md`, a feature implementation, or a bug fix does not activate this skill by itself.
+
 ## Responsibility
 
-Turn a concrete requirement, bug report, acceptance criterion, or user workflow into a repository-grounded Playwright plan that the generator and healer can execute without guessing.
+Turn a concrete Playwright request, bug regression request, acceptance criterion, user workflow, or failing target into a repository-grounded plan that the generator and healer can execute without guessing.
 
-When `.agents/playwright.md` exists, read it and apply its default testing obligation and exemptions.
+When `.agents/playwright.md` exists, read it after activation and apply its authoring rules, asset model, and exemptions.
 
 ## Required inspection
 
-Inspect, when present:
+Inspect only what is relevant to the explicit Playwright request, when present:
 
 ```text
 package.json
@@ -28,10 +30,10 @@ harness-comet.config.ts
 playwright.config.ts
 configured Playwright test directories
 relevant application routes, components, stores, APIs, serializers, and feature flags
-existing Playwright specs, fixtures, Page Objects, helpers, support utilities, and test data
+plausible Playwright specs, fixtures, Page Objects, helpers, support utilities, and test data
 ```
 
-Run when available:
+Run when useful and available:
 
 ```bash
 pnpm exec playwright test --list
@@ -39,20 +41,16 @@ pnpm exec playwright test --list
 
 Use the project's package manager when it is not pnpm.
 
-Search existing `*.spec.*` files by business behavior, real route, production implementation, API, fixture, Page Object, helper, tag, incident ID, imports, and changed source dependencies. Filename or keyword similarity alone is not proof of coverage; read plausible candidates and explain the relationship.
+Search plausible existing `*.spec.*` files by business behavior, real route, production implementation, API, fixture, Page Object, helper, tag, incident ID, imports, and changed source dependencies. Filename or keyword similarity alone is not proof of coverage; read plausible candidates and explain the relationship. Do not scan unrelated tests merely to satisfy policy.
 
 ## Required test action
 
-Select exactly one:
+Select exactly one after Playwright work has been explicitly requested:
 
-- `verify`: an existing test directly proves the changed behavior and will be executed;
+- `verify`: an existing test directly proves the requested behavior and will be executed;
 - `update`: existing coverage is related but lacks a required step, branch, input, or assertion;
-- `create`: no existing test directly proves the behavior;
-- `none`: only an explicit exemption in `.agents/playwright.md` applies.
-
-Do not select `none` because the change is small, the user did not request tests, coverage might exist, tests are difficult, or execution is slow.
-
-Feature work and bug fixes default to `update` or `create` unless direct existing coverage supports `verify`.
+- `create`: no existing test directly proves the requested behavior;
+- `none`: the explicit request has no browser-observable behavior after inspection, or the user explicitly asks not to create or execute tests.
 
 ## Playwright asset placement model
 
@@ -72,7 +70,7 @@ Plan assets under:
   support/     Fixtures, mocks, selectors, assertions, factories, and helpers
 ```
 
-Create only the asset types needed by the requirement.
+Create only the asset types needed by the explicit request.
 
 ## Placement contract
 
@@ -115,4 +113,4 @@ playwrightPlan:
   blockers: []
 ```
 
-For `update` or `create`, at least one concrete spec target must be declared unless the requirement is explicitly data-only or support-only. For `verify`, every target must already exist and include evidence of direct coverage. For `none`, `exemption` is required and all planned asset arrays must be empty.
+For `update` or `create`, at least one concrete spec target must be declared unless the explicit request is data-only or support-only. For `verify`, every target must already exist and include evidence of direct coverage. For `none`, explain the reason and keep all planned asset arrays empty.
