@@ -142,7 +142,7 @@ async function syncRulesFile(filePath: string, language: GuidanceLanguage): Prom
   );
 
   // Customized legacy files are migrated section-by-section so user-authored rules survive.
-  if (next === undefined && isLegacyRulesContent(current)) {
+  if (next === undefined && current.includes(".agents/playwright.md")) {
     next = replaceMarkdownSection(
       current,
       ["### Playwright testing", "### Playwright 测试"],
@@ -181,8 +181,8 @@ async function syncPlaywrightPolicyFile(
     activationBlock
   );
 
-  // If the project customized the legacy policy, replace only the mandatory activation sections.
-  if (next === undefined && isLegacyPlaywrightPolicy(current)) {
+  // Customized legacy files are recognized by the old section shape, not exact wording.
+  if (next === undefined) {
     next = replaceBetweenHeadings(
       current,
       ["## Default testing obligation", "## 默认测试义务"],
@@ -192,16 +192,6 @@ async function syncPlaywrightPolicyFile(
   }
 
   if (next !== undefined && next !== current) await writeAtomic(filePath, next);
-}
-
-function isLegacyRulesContent(content: string): boolean {
-  return content.includes("When work changes user-visible behavior, implements a feature") ||
-    content.includes("涉及用户可感知行为、新功能、Bug 修复");
-}
-
-function isLegacyPlaywrightPolicy(content: string): boolean {
-  return content.includes("Playwright coverage is part of the default delivery") ||
-    content.includes("Playwright 测试是功能实现和 Bug 修复的默认交付内容");
 }
 
 function replaceManagedBlock(
