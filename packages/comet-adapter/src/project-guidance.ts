@@ -18,6 +18,8 @@ import {
 } from "./project-guidance-policy-templates.js";
 import {
   playwrightAssetValidatorTemplate,
+  playwrightPolicyTemplate as legacyPlaywrightPolicyTemplate,
+  rulesTemplate as legacyRulesTemplate,
   structureTemplate,
   type GuidanceLanguage
 } from "./project-guidance-templates.js";
@@ -125,6 +127,12 @@ async function syncRulesFile(filePath: string, language: GuidanceLanguage): Prom
     return;
   }
 
+  // An untouched legacy Harness-Comet file is safe to replace wholesale with the shorter policy.
+  if (current === legacyRulesTemplate(language)) {
+    await writeAtomic(filePath, rulesTemplate(language));
+    return;
+  }
+
   const managedBlock = playwrightRulesBlock(language);
   let next = replaceManagedBlock(
     current,
@@ -133,6 +141,7 @@ async function syncRulesFile(filePath: string, language: GuidanceLanguage): Prom
     managedBlock
   );
 
+  // Customized legacy files are migrated section-by-section so user-authored rules survive.
   if (next === undefined && isLegacyRulesContent(current)) {
     next = replaceMarkdownSection(
       current,
@@ -158,6 +167,12 @@ async function syncPlaywrightPolicyFile(
     return;
   }
 
+  // Exact legacy generated files can be fully replaced, reducing prompt size for upgraded projects.
+  if (current === legacyPlaywrightPolicyTemplate(language)) {
+    await writeAtomic(filePath, playwrightPolicyTemplate(language));
+    return;
+  }
+
   const activationBlock = playwrightActivationBlock(language);
   let next = replaceManagedBlock(
     current,
@@ -166,6 +181,7 @@ async function syncPlaywrightPolicyFile(
     activationBlock
   );
 
+  // If the project customized the legacy policy, replace only the mandatory activation sections.
   if (next === undefined && isLegacyPlaywrightPolicy(current)) {
     next = replaceBetweenHeadings(
       current,
