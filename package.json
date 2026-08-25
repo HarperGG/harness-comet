@@ -22,7 +22,8 @@
     "release": "pnpm release:check && pnpm pack:all && pnpm test:consumer && changeset publish",
     "release:check": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm test && pnpm lint",
     "release:check:no-test": "pnpm clean && pnpm install --frozen-lockfile && pnpm build && pnpm lint",
-    "release:no-test": "pnpm release:check:no-test && pnpm pack:all && pnpm test:consumer && changeset publish"
+    "release:no-test": "pnpm release:check:no-test && pnpm pack:all && pnpm test:consumer && changeset publish",
+    "publish:internal": "bash scripts/publish-internal.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.0",
